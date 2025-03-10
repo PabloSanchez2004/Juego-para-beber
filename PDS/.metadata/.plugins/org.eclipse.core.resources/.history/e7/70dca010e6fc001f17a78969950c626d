@@ -1,0 +1,27 @@
+package Ventana;
+
+import javafx.fxml.FXML;
+import javafx.scene.control.TextField;
+import javafx.scene.control.PasswordField;
+
+public class MainAPP {
+
+    @FXML
+    private TextField telefonoField;
+
+    @FXML
+    private PasswordField contraseñaField;
+
+    // Método para manejar el evento de login
+    @FXML
+    private void login() {
+        String telefono = telefonoField.getText();
+        String contraseña = contraseñaField.getText();
+
+        // Lógica para procesar el login
+        System.out.println("Teléfono: " + telefono);
+        System.out.println("Contraseña: " + contraseña);
+
+        // Aquí puedes agregar la lógica de validación y login
+    }
+}

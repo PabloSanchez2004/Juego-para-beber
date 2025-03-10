@@ -1,0 +1,22 @@
+package Ventana;
+
+import javafx.event.ActionEvent;
+
+import javafx.fxml.FXML;
+
+public class ControladorVentanaLogin {
+
+	@FXML
+    public void login(ActionEvent e) {
+	    VentanaPrincipal v = new VentanaPrincipal();
+	    v.setDatos("¡Hola desde la ventana principal!");
+	    v.mostrar();
+    }
+
+	@FXML
+    public void registrar(ActionEvent e) {
+    	System.out.println("registrar");
+    }
+	
+    
+}

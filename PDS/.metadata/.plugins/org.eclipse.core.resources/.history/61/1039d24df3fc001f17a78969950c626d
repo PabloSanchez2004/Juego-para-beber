@@ -1,0 +1,44 @@
+package Ventana;
+
+import javafx.stage.Stage;
+
+public class VentanaPrincipal {
+
+    private Stage stage;
+    private VentanaPrincipal controller;
+
+    public SegundaVentana() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/segundaVentana.fxml"));
+            Parent root = loader.load();
+
+            // Obtener el controlador
+            controller = loader.getController();
+
+            stage = new Stage();
+            stage.setScene(new Scene(root));
+            stage.setTitle("Segunda Ventana");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Método para pasar datos a la segunda ventana
+    public void setDatos(String datos) {
+        if (controller != null) {
+            controller.setDatos(datos);
+        }
+    }
+
+    public void mostrar() {
+        if (stage != null) {
+            stage.show();
+        }
+    }
+
+    public void cerrar() {
+        if (stage != null) {
+            stage.close();
+        }
+    }
+}

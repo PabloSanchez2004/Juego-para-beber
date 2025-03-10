@@ -1,0 +1,25 @@
+package Ventana;
+
+import javafx.event.ActionEvent;
+
+import javafx.fxml.FXML;
+import javafx.stage.Stage;
+
+public class ControladorVentanaLogin {
+
+	@FXML
+    public void login(ActionEvent e) {
+	    VentanaPrincipal v = new VentanaPrincipal();
+	       Stage ventanaActual = (Stage) ((javafx.scene.Node) e.getSource()).getScene().getWindow();
+	        ventanaActual.close();
+	    v.mostrar();
+	    
+    }
+
+	@FXML
+    public void registrar(ActionEvent e) {
+    	System.out.println("registrar");
+    }
+	
+    
+}

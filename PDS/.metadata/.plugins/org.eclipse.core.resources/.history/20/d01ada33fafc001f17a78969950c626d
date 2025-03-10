@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Ventana.ControladorVentanaLogin">
+   <children>
+      <!-- VBox con los elementos centrados -->
+      <VBox fx:id="vboxContenedor" alignment="CENTER" spacing="10" prefWidth="300">
+         <Text text="Login" textAlignment="CENTER"/>
+         <TextField fx:id="txtTelefono" promptText="Teléfono"/>
+         <PasswordField fx:id="txtPassword" promptText="Contraseña"/>
+         <HBox alignment="CENTER" spacing="20">
+            <Button fx:id="btnRegistrar" text="Registrar" onAction="#registrar"/>
+            <Button fx:id="btnLogin" text="Login" onAction="#login"/>
+         </HBox>
+      </VBox>
+   </children>
+</AnchorPane>

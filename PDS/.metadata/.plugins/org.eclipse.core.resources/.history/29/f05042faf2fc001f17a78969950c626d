@@ -1,0 +1,37 @@
+package Ventana;
+
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+public class MainAPP extends Application {
+
+	@Override
+	public void start(Stage primaryStage) throws Exception {
+	    try {
+	        // Cargar el archivo FXML
+	        Parent root = FXMLLoader.load(getClass().getResource("/FXML/main.fxml"));
+
+
+	        // Crear la escena
+	        Scene scene = new Scene(root);
+
+	        // Configurar el escenario (Stage)
+	        primaryStage.setTitle("Mi Aplicación");
+	        primaryStage.setScene(scene);
+	        primaryStage.isFullScreen(true);
+	        // Mostrar la ventana
+	        primaryStage.show();
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        System.err.println("Error al cargar el archivo FXML: " + e.getMessage());
+	    }
+	}
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}

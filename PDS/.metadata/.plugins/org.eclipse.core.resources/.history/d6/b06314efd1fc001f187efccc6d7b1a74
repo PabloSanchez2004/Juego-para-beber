@@ -1,0 +1,13 @@
+package Ventana;
+
+import javafx.application.Application;
+
+import javafx.stage.Stage;
+
+public class MainAPP{
+
+    public static void main(String[] args) {
+        System.out.print("hola");
+    }
+
+}

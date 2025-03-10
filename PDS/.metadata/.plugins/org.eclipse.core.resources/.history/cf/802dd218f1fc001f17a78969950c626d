@@ -1,0 +1,16 @@
+package Ventana;
+
+import java.awt.event.ActionEvent;
+
+public class ControladorVentanaLogin {
+
+	@FXML
+    public void login(ActionEvent e) {
+    	System.out.println("login");
+    }
+
+    public void registrar(ActionEvent e) {
+    	System.out.println("registrar");
+    }
+    
+}

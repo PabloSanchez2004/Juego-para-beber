@@ -1,0 +1,15 @@
+package Ventana;
+
+import java.awt.event.ActionEvent;
+
+public class ControladorVentanaLogin {
+
+    @FXML
+    private Button login; // Ejemplo de un botón
+
+    @FXML
+    private void login() {
+    	System.out.println("login");
+    }
+    
+}
