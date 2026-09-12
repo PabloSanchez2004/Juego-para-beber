@@ -48,6 +48,11 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.setupServiceWorkerUpdates();
 
+    // Recarga de Vercel / bloqueo de pantalla: si hay sesión, reconectar ya.
+    void this.roomService.connect().catch(err => {
+      console.warn('[App] Conexión inicial fallida:', err);
+    });
+
     // Navegar automáticamente según el estado del juego
     this.subs.add(
       this.roomService.gameState$.subscribe(state => {

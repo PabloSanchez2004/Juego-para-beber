@@ -495,6 +495,20 @@ public class RoomReconnectionTests
         bool ok = room.TryReconnectPlayer("p1", "new-conn");
         Assert.True(ok);
         Assert.True(player.IsConnected);
+        Assert.False(player.IsDisconnected);
+        Assert.Equal("new-conn", player.ConnectionId);
+    }
+
+    [Fact]
+    public void TryMarkDisconnected_AfterRejoin_DoesNotClobberNewConnection()
+    {
+        var room = new Room { Code = "RACE" };
+        var player = new Player { Name = "Ana", ConnectionId = "old-conn", PlayerId = "p1" };
+        room.TryAddPlayer(player);
+
+        room.TryReconnectPlayer("p1", "new-conn");
+        Assert.False(room.TryMarkDisconnected("p1", "old-conn"));
+        Assert.True(player.IsConnected);
         Assert.Equal("new-conn", player.ConnectionId);
     }
 

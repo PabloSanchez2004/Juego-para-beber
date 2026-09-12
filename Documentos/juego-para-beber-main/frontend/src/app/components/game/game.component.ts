@@ -118,7 +118,11 @@ export class GameComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.roomService.gameState$.subscribe(s => {
-        if (!s) { this.router.navigate(['/']); return; }
+        if (!s) {
+          if (this.roomService.localPlayer) return;
+          this.router.navigate(['/']);
+          return;
+        }
         this.state.set(s);
 
         // Reset al cambiar de fase
@@ -129,6 +133,16 @@ export class GameComponent implements OnInit, OnDestroy {
           this.guessInput.set('');
           this.magnitudeId.set('units');
           this.loading.set(false);
+        }
+
+        // Tras RejoinRoom: recuperar si ya habíamos enviado
+        if (s.phase === 'CollectingGuesses') {
+          this.questionSent.set(true);
+          const me = s.players.find(p => p.playerId === this.myPlayerId());
+          if (me?.guess != null) {
+            this.guessSent.set(true);
+            this.guessInput.set(formatEsNumber(me.guess));
+          }
         }
       })
     );

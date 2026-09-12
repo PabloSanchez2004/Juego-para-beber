@@ -10,7 +10,8 @@ namespace Aproximados.Api.Hubs;
 /// Protocolo cliente→servidor (métodos invocables):
 ///   CreateRoom(name, alcoholFree, maxRounds) → RoomCreated | Error
 ///   JoinRoom(code, name, alcoholFree)     → JoinedRoom | Error
-///   Reconnect(code, playerId)             → ReconnectedRoom | Error
+///   RejoinRoom(roomId, playerId)          → ReconnectedRoom | Error
+///   Reconnect(code, playerId)             → alias de RejoinRoom
 ///   StartGame(maxRounds)                  → GameStateUpdated (broadcast)
 ///   SubmitQuestion(question)              → GameStateUpdated (broadcast) + lanza pre-cálculo IA en 2º plano
 ///   SubmitGuess(guess)                    → GuessAcknowledged | GameStateUpdated (la última recoge el pre-cálculo)
@@ -58,17 +59,20 @@ public sealed class GameHub : Hub
             var room = _roomManager.GetRoom(roomCode);
             if (room is not null)
             {
-                var player = room.Players.FirstOrDefault(p => p.PlayerId == playerId);
-                room.MarkDisconnected(Context.ConnectionId);
-
-                if (player is not null)
+                // No expulsar: solo marcar. Si ya se reenganchó con otro ConnectionId, no-op.
+                if (room.TryMarkDisconnected(playerId, Context.ConnectionId))
                 {
-                    await Clients.Group(roomCode).SendAsync(
-                        "PlayerDisconnected", player.Name);
+                    var player = room.Players.FirstOrDefault(p => p.PlayerId == playerId);
+                    if (player is not null)
+                    {
+                        await Clients.Group(roomCode).SendAsync(
+                            "PlayerDisconnected", player.Name);
+                        await BroadcastState(room, excludePlayerId: null);
+                    }
 
                     _logger.LogInformation(
-                        "Jugador {Name} desconectado de sala {Code}. Grace period: {Seconds}s",
-                        player.Name, roomCode, Room.ReconnectGracePeriod.TotalSeconds);
+                        "Jugador {PlayerId} desconectado de sala {Code}. Asiento reservado {Minutes} min",
+                        playerId, roomCode, Room.ReconnectGracePeriod.TotalMinutes);
                 }
             }
         }
@@ -78,7 +82,7 @@ public sealed class GameHub : Hub
 
     // ── Crear sala ─────────────────────────────────────────────────────────
 
-    public async Task CreateRoom(string name, bool alcoholFree, int maxRounds = Room.DefaultMaxRounds)
+    public async Task CreateRoom(string name, bool alcoholFree, int maxRounds = Room.DefaultMaxRounds, string? playerId = null)
     {
         try
         {
@@ -97,12 +101,7 @@ public sealed class GameHub : Hub
 
             room.TrySetMaxRounds(maxRounds);
 
-            var player = new Player
-            {
-                Name = name.Trim(),
-                ConnectionId = Context.ConnectionId,
-                AlcoholFree = alcoholFree
-            };
+            var player = NewPlayer(name, alcoholFree, playerId);
 
             if (!room.TryAddPlayer(player))
             {
@@ -128,7 +127,7 @@ public sealed class GameHub : Hub
 
     // ── Unirse a sala ──────────────────────────────────────────────────────
 
-    public async Task JoinRoom(string code, string name, bool alcoholFree)
+    public async Task JoinRoom(string code, string name, bool alcoholFree, string? playerId = null)
     {
         if (!ValidateName(name, out var nameError))
         {
@@ -145,18 +144,21 @@ public sealed class GameHub : Hub
             return;
         }
 
+        // Recarga a mitad de partida: el PlayerId persistente recupera el asiento.
+        if (!string.IsNullOrWhiteSpace(playerId) &&
+            room.Players.Any(p => p.PlayerId == playerId))
+        {
+            await RejoinRoom(code, playerId);
+            return;
+        }
+
         if (room.Phase != GamePhase.Lobby)
         {
             await SendError("La partida ya ha empezado. Espera a la siguiente ronda.");
             return;
         }
 
-        var player = new Player
-        {
-            Name = name.Trim(),
-            ConnectionId = Context.ConnectionId,
-            AlcoholFree = alcoholFree
-        };
+        var player = NewPlayer(name, alcoholFree, playerId);
 
         if (!room.TryAddPlayer(player))
         {
@@ -178,9 +180,14 @@ public sealed class GameHub : Hub
 
     // ── Reconexión ─────────────────────────────────────────────────────────
 
-    public async Task Reconnect(string code, string playerId)
+    /// <summary>
+    /// Recupera el asiento por PlayerId persistente y sustituye el ConnectionId
+    /// volátil. La última conexión gana: así un refresh o un corte 5G no se
+    /// rechaza como «otro dispositivo».
+    /// </summary>
+    public async Task RejoinRoom(string roomId, string playerId)
     {
-        code = code.Trim().ToUpperInvariant();
+        var code = (roomId ?? string.Empty).Trim().ToUpperInvariant();
         var room = _roomManager.GetRoom(code);
 
         if (room is null)
@@ -189,18 +196,10 @@ public sealed class GameHub : Hub
             return;
         }
 
-        // Verificar que el jugador existe y no ha expirado
         var player = room.Players.FirstOrDefault(p => p.PlayerId == playerId);
         if (player is null)
         {
             await SendError("Tu sesión expiró. Únete de nuevo con tu nombre.");
-            return;
-        }
-
-        // Detectar suplantación: si el jugador ya está conectado con otro connectionId
-        if (player.IsConnected && player.ConnectionId != Context.ConnectionId)
-        {
-            await SendError("Este jugador ya está conectado desde otro dispositivo.");
             return;
         }
 
@@ -213,12 +212,19 @@ public sealed class GameHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, code);
         StoreContext(code, playerId);
 
+        // Estado privado de la ronda (pregunta, progreso, su propia estimación).
         var state = room.ToDto(playerId);
         await Clients.Caller.SendAsync("ReconnectedRoom", state);
         await Clients.Group(code).SendAsync("PlayerReconnected", player.Name);
+        await BroadcastState(room, excludePlayerId: null);
 
-        _logger.LogInformation("Jugador {Name} reconectado a sala {Code}", player.Name, code);
+        _logger.LogInformation(
+            "Jugador {Name} reenganchado a sala {Code} con ConnectionId {Conn}",
+            player.Name, code, Context.ConnectionId);
     }
+
+    /// <summary>Alias retrocompatible de <see cref="RejoinRoom"/>.</summary>
+    public Task Reconnect(string code, string playerId) => RejoinRoom(code, playerId);
 
     // ── Iniciar juego ──────────────────────────────────────────────────────
 
@@ -550,6 +556,17 @@ public sealed class GameHub : Hub
         Context.Items[RoomCodeKey] = roomCode;
         Context.Items[PlayerIdKey] = playerId;
     }
+
+    private Player NewPlayer(string name, bool alcoholFree, string? playerId) =>
+        new()
+        {
+            Name = name.Trim(),
+            ConnectionId = Context.ConnectionId,
+            AlcoholFree = alcoholFree,
+            PlayerId = string.IsNullOrWhiteSpace(playerId)
+                ? Guid.NewGuid().ToString("N")
+                : playerId.Trim()
+        };
 
     private static bool ValidateName(string name, out string error)
     {

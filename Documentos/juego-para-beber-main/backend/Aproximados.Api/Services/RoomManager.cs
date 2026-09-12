@@ -86,6 +86,20 @@ public sealed class RoomManager
         return expired;
     }
 
+    /// <summary>
+    /// Expulsa de cada sala a los jugadores cuyo grace period de reconexión expiró.
+    /// No toca a quien sigue desconectado dentro de la ventana.
+    /// </summary>
+    public void PurgeTimedOutPlayers()
+    {
+        foreach (var room in _rooms.Values)
+        {
+            var purged = room.PurgeTimedOutPlayers();
+            if (purged.Count > 0)
+                _logger.LogInformation("Sala {Code}: expulsados por timeout {Ids}", room.Code, string.Join(", ", purged));
+        }
+    }
+
     private static string GenerateCode()
     {
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // sin I, O para evitar confusión

@@ -234,7 +234,33 @@ describe('ResultsComponent', () => {
     expect(el.textContent).toContain('Clasificación final');
     expect(el.textContent).toContain('Elige quién bebe');
     expect(el.textContent).toContain('Bebe');
-    expect(el.querySelector('table')).toBeTruthy();
+    expect(el.querySelector('.podium')).toBeTruthy();
+    expect(component.podiumRows()[0].player.name).toBe('Ana');
+    expect(component.podiumRows()[component.podiumRows().length - 1].player.name).toBe('Bob');
+    expect(component.podiumRows()[component.podiumRows().length - 1].barPercent).toBe(100);
+  });
+
+  it('podium bar percent is relative to the highest score', () => {
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
+    fixture.detectChanges();
+    const ana = component.podiumRows().find(r => r.player.name === 'Ana');
+    expect(ana?.barPercent).toBeCloseTo((10 / 110) * 100, 5);
+  });
+
+  it('staggers each podium row by 1 second and starts bars at 0 width', () => {
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.podium-row') as NodeListOf<HTMLElement>;
+    expect(rows.length).toBe(3);
+    expect(rows[0].style.animationDelay).toBe('0ms');
+    expect(rows[1].style.animationDelay).toBe('1000ms');
+    expect(rows[2].style.animationDelay).toBe('2000ms');
+
+    const bars = fixture.nativeElement.querySelectorAll('.podium-bar-fill') as NodeListOf<HTMLElement>;
+    expect(component.podiumArmed()).toBeFalse();
+    expect(bars[0].style.width).toBe('0%');
+    expect(bars[2].style.transitionDelay).toBe('2000ms');
   });
 
   it('should leave the room when finishing the game', async () => {

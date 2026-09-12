@@ -17,7 +17,7 @@ public sealed class Room
     public const int DefaultMaxRounds = 10;
 
     /// <summary>Tiempo máximo de reconexión antes de expulsar al jugador.</summary>
-    public static readonly TimeSpan ReconnectGracePeriod = TimeSpan.FromSeconds(30);
+    public static readonly TimeSpan ReconnectGracePeriod = TimeSpan.FromMinutes(15);
 
     /// <summary>Tiempo de inactividad antes de cerrar la sala automáticamente.</summary>
     public static readonly TimeSpan RoomIdleTimeout = TimeSpan.FromMinutes(60);
@@ -79,6 +79,7 @@ public sealed class Room
         lock (_lock)
         {
             if (_phase == GamePhase.Closed) return false;
+            if (_players.ContainsKey(player.PlayerId)) return false;
             if (_players.Count >= MaxPlayers) return false;
             if (_players.Values.Any(p => p.Name.Equals(player.Name, StringComparison.OrdinalIgnoreCase)))
                 return false;
@@ -126,14 +127,29 @@ public sealed class Room
     /// <summary>Marca al jugador como desconectado.</summary>
     public void MarkDisconnected(string connectionId)
     {
+        TryMarkDisconnected(playerId: null, connectionId);
+    }
+
+    /// <summary>
+    /// Marca desconexión solo si <paramref name="connectionId"/> sigue siendo
+    /// el ConnectionId actual. Si el jugador ya hizo RejoinRoom con uno nuevo,
+    /// el OnDisconnected de la conexión vieja no le pisa el asiento.
+    /// </summary>
+    public bool TryMarkDisconnected(string? playerId, string connectionId)
+    {
         lock (_lock)
         {
-            var player = _players.Values.FirstOrDefault(p => p.ConnectionId == connectionId);
-            if (player is null) return;
+            Player? player = playerId is not null && _players.TryGetValue(playerId, out var byId)
+                ? byId
+                : _players.Values.FirstOrDefault(p => p.ConnectionId == connectionId);
 
-            player.IsConnected = false;
+            if (player is null) return false;
+            if (player.ConnectionId != connectionId) return false;
+
+            player.IsDisconnected = true;
             player.DisconnectedAt = DateTimeOffset.UtcNow;
             _lastActivity = DateTimeOffset.UtcNow;
+            return true;
         }
     }
 

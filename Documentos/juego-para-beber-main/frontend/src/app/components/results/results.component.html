@@ -215,58 +215,47 @@
             }
           </div>
 
-          <div class="overflow-hidden rounded-3xl border border-white/5 shadow-card bg-ink-900">
-            <table class="w-full text-left">
-              <caption class="sr-only">Clasificación final por puntos</caption>
-              <thead>
-                <tr class="text-[11px] uppercase tracking-[0.14em] text-slate-500 border-b border-white/5">
-                  <th class="px-4 py-3 font-semibold w-12">#</th>
-                  <th class="px-2 py-3 font-semibold">Jugador</th>
-                  <th class="px-4 py-3 font-semibold text-right">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of finalStandings(); track row.player.playerId) {
-                  <tr
-                    class="border-b border-white/5 last:border-0 align-top"
-                    [ngClass]="{
-                      'bg-gold-400/10': row.outcome === 'best',
-                      'bg-red-500/10': row.outcome === 'worst'
-                    }">
-                    <td class="px-4 py-3">
-                      <span
-                        class="inline-flex w-8 h-8 rounded-xl items-center justify-center font-extrabold text-sm tabular-nums"
-                        [ngClass]="{
-                          'bg-gold-400 text-ink-950': row.outcome === 'best',
-                          'bg-red-500 text-white': row.outcome === 'worst',
-                          'bg-white/5 text-slate-300': row.outcome === 'mid'
-                        }">
-                        {{ row.place }}
-                      </span>
-                    </td>
-                    <td class="px-2 py-3 pr-3">
-                      <p class="font-bold text-white text-sm truncate">
-                        {{ row.player.name }}
-                        @if (isMe(row.player.playerId)) {
-                          <span class="text-slate-500 font-medium">· tú</span>
-                        }
-                      </p>
-                      <p class="text-slate-400 text-xs mt-1 leading-snug">{{ row.comment }}</p>
-                      @if (row.outcome === 'best') {
-                        <p class="text-gold-300 text-xs font-semibold mt-1.5">🎯 Elige quién bebe</p>
-                      }
-                      @if (row.outcome === 'worst') {
-                        <p class="text-red-300 text-xs font-semibold mt-1.5">🍺 Te toca beber</p>
-                      }
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <p class="text-white font-extrabold tabular-nums">{{ row.player.score }}</p>
-                      <p class="text-slate-500 text-xs tabular-nums">{{ row.player.drinksOwed }} 🍺</p>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="podium space-y-3" role="list" aria-label="Podio final, de peor a mejor">
+            <article
+              *ngFor="let row of podiumRows(); let i = index; trackBy: trackPodium"
+              class="podium-row relative overflow-hidden rounded-3xl border shadow-card"
+              [style.animation-delay.ms]="i * 1000"
+              [ngClass]="{
+                'border-gold-400/40': row.outcome === 'best',
+                'border-red-500/40': row.outcome === 'worst',
+                'border-white/5': row.outcome === 'mid'
+              }"
+              role="listitem"
+              [attr.aria-label]="row.player.name + ', puesto ' + row.place + ', ' + row.player.score + ' puntos'">
+
+              <div
+                class="podium-bar-fill"
+                [ngClass]="{
+                  'podium-bar-gold': row.outcome === 'best',
+                  'podium-bar-red': row.outcome === 'worst',
+                  'podium-bar-mid': row.outcome === 'mid'
+                }"
+                [style.width.%]="podiumArmed() ? row.barPercent : 0"
+                [style.transition-delay.ms]="i * 1000">
+              </div>
+
+              <div class="relative z-10 flex items-center gap-3 p-4">
+                <span class="text-3xl w-10 text-center shrink-0" aria-hidden="true">{{ row.emoji }}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold text-white text-base truncate">
+                    {{ row.player.name }}
+                    <span *ngIf="isMe(row.player.playerId)" class="text-slate-500 font-medium">· tú</span>
+                  </p>
+                  <p class="text-slate-400 text-xs mt-0.5 leading-snug">{{ row.comment }}</p>
+                  <p *ngIf="row.outcome === 'best'" class="text-gold-300 text-xs font-semibold mt-1">🎯 Elige quién bebe</p>
+                  <p *ngIf="row.outcome === 'worst'" class="text-red-300 text-xs font-semibold mt-1">🍺 Te toca beber</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-white font-extrabold text-xl tabular-nums leading-none">{{ row.player.score }}</p>
+                  <p class="text-slate-500 text-xs mt-1">pts</p>
+                </div>
+              </div>
+            </article>
           </div>
         </section>
       }
@@ -282,7 +271,8 @@
       <div class="mt-auto">
         @if (isLastRound()) {
           <button
-            class="btn-primary"
+            class="btn-primary podium-reveal"
+            [style.animation-delay.ms]="podiumRows().length * 1000"
             [disabled]="loading()"
             (click)="finishGame()"
             aria-label="Terminar y volver al inicio">

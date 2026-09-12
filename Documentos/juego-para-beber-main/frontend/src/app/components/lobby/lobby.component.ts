@@ -46,7 +46,11 @@ export class LobbyComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.roomService.gameState$.subscribe(s => {
-        if (!s) { this.router.navigate(['/']); return; }
+        if (!s) {
+          if (this.roomService.localPlayer) return;
+          this.router.navigate(['/']);
+          return;
+        }
         this.state.set(s);
       })
     );

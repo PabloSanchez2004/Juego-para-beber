@@ -26,6 +26,7 @@ public sealed class RoomCleanupService : BackgroundService
 
             try
             {
+                _roomManager.PurgeTimedOutPlayers();
                 var removed = _roomManager.PurgeExpiredRooms();
                 if (removed.Count > 0)
                     _logger.LogInformation("Salas expiradas eliminadas: {Codes}", string.Join(", ", removed));

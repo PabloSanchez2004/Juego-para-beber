@@ -28,6 +28,16 @@ export interface RankRow {
   outcome: RankOutcome;
 }
 
+/** Fila del podio final: de peor a mejor, con barra relativa al máximo. */
+export interface PodiumRow {
+  player: PlayerPublicDto;
+  place: number;
+  outcome: FinalStanding['outcome'];
+  comment: string;
+  barPercent: number;
+  emoji: string;
+}
+
 @Component({
   selector: 'app-results',
   standalone: true,
@@ -97,12 +107,36 @@ export class ResultsComponent implements OnInit, OnDestroy {
     return s ? s.roundNumber >= s.maxRounds : false;
   });
 
-  /** Tabla de clasificación al acabar la partida (puntos acumulados). */
+  /** Tabla de clasificación al acabar la partida (mejor → peor, para reglas). */
   finalStandings = computed<FinalStanding[]>(() => {
     const s = this.state();
     if (!s || !this.isLastRound()) return [];
     return buildFinalStandings(s.players, s.roomCode);
   });
+
+  /**
+   * Podio animado: peor primero, campeón al final.
+   * barPercent = puntos / maxPuntos * 100 para que la barra no desborde.
+   */
+  podiumRows = computed<PodiumRow[]>(() => {
+    const standings = this.finalStandings();
+    if (standings.length === 0) return [];
+
+    const maxScore = Math.max(...standings.map(r => r.player.score), 0);
+    return [...standings]
+      .sort((a, b) => a.player.score - b.player.score || b.place - a.place)
+      .map(row => ({
+        player: row.player,
+        place: row.place,
+        outcome: row.outcome,
+        comment: row.comment,
+        barPercent: maxScore > 0 ? (row.player.score / maxScore) * 100 : 0,
+        emoji: this.placeEmoji(row.place),
+      }));
+  });
+
+  /** Dispara el llenado de barras un frame después de pintar (la transition necesita partir de 0). */
+  podiumArmed = signal(false);
 
   finalBestNames = computed(() => namesOf(this.finalStandings(), 'best'));
   finalWorstNames = computed(() => namesOf(this.finalStandings(), 'worst'));
@@ -128,8 +162,13 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.roomService.gameState$.subscribe(s => {
-        if (!s) { this.router.navigate(['/']); return; }
+        if (!s) {
+          if (this.roomService.localPlayer) return;
+          this.router.navigate(['/']);
+          return;
+        }
         this.state.set(s);
+        this.armPodium(s.roundNumber >= s.maxRounds);
       })
     );
 
@@ -143,6 +182,16 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+    clearTimeout(this.podiumArmTimer);
+  }
+
+  private podiumArmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private armPodium(isFinal: boolean): void {
+    clearTimeout(this.podiumArmTimer);
+    this.podiumArmed.set(false);
+    if (!isFinal) return;
+    this.podiumArmTimer = setTimeout(() => this.podiumArmed.set(true), 50);
   }
 
   async nextRound(): Promise<void> {
@@ -219,5 +268,18 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   trackByPlayerId(_: number, r: PlayerRoundResult): string {
     return r.playerId;
+  }
+
+  trackPodium(_: number, row: PodiumRow): string {
+    return row.player.playerId;
+  }
+
+  placeEmoji(place: number): string {
+    switch (place) {
+      case 1: return '🥇';
+      case 2: return '🥈';
+      case 3: return '🥉';
+      default: return '🎯';
+    }
   }
 }

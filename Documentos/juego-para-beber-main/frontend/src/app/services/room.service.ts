@@ -25,6 +25,7 @@ const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
 const CONNECT_TIMEOUT_MS = 15_000;
 const INVOKE_TIMEOUT_MS = 15_000;
 const SESSION_KEY = 'aproximados_session';
+const SESSION_BACKUP_KEY = 'aproximados_session_backup';
 
 const SIGNALR_TRANSPORTS =
   HttpTransportType.WebSockets |
@@ -136,7 +137,14 @@ export class RoomService implements OnDestroy {
     await this.ensureConnected();
     try {
       const rounds = Math.min(20, Math.max(1, Math.round(maxRounds) || 10));
-      await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, false, rounds);
+      const playerId = this.ensurePlayerId();
+      this.saveSession({
+        playerId,
+        roomCode: this._localPlayer?.roomCode ?? '',
+        name,
+        alcoholFree: false,
+      });
+      await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, false, rounds, playerId);
     } catch (err) {
       console.error('[RoomService] CreateRoom failed:', err);
       throw err;
@@ -146,7 +154,14 @@ export class RoomService implements OnDestroy {
   async joinRoom(code: string, name: string): Promise<void> {
     await this.ensureConnected();
     try {
-      await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, false);
+      const playerId = this.ensurePlayerId();
+      this.saveSession({
+        playerId,
+        roomCode: code.toUpperCase(),
+        name,
+        alcoholFree: false,
+      });
+      await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, false, playerId);
     } catch (err) {
       console.error('[RoomService] JoinRoom failed:', err);
       throw err;
@@ -185,7 +200,7 @@ export class RoomService implements OnDestroy {
     }
     this._localPlayer = null;
     this._gameState$.next(null);
-    sessionStorage.removeItem(SESSION_KEY);
+    this.clearStoredSession();
   }
 
   // ── Handlers de eventos del servidor ──────────────────────────────────
@@ -243,6 +258,10 @@ export class RoomService implements OnDestroy {
 
     this._hub.on('Error', (message: string) => {
       this._error$.next(message);
+      if (/ya no existe|sesión expiró/i.test(message) && !this._gameState$.value) {
+        this._localPlayer = null;
+        this.clearStoredSession();
+      }
     });
 
     this._hub.on('PlayerDisconnected', (playerName: string) => {
@@ -258,7 +277,7 @@ export class RoomService implements OnDestroy {
       this._error$.next(`Sala cerrada: ${reason}`);
       this._gameState$.next(null);
       this._localPlayer = null;
-      sessionStorage.removeItem(SESSION_KEY);
+      this.clearStoredSession();
     });
   }
 
@@ -266,28 +285,55 @@ export class RoomService implements OnDestroy {
 
   private saveSession(player: LocalPlayerState): void {
     this._localPlayer = player;
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(player));
+    const raw = JSON.stringify(player);
+    try { sessionStorage.setItem(SESSION_KEY, raw); } catch { /* private mode */ }
+    try { localStorage.setItem(SESSION_BACKUP_KEY, raw); } catch { /* private mode */ }
   }
 
   private restoreSession(): void {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      const raw = sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_BACKUP_KEY);
       if (raw) {
         this._localPlayer = JSON.parse(raw) as LocalPlayerState;
+        if (this._localPlayer) {
+          try { sessionStorage.setItem(SESSION_KEY, raw); } catch { /* noop */ }
+        }
       }
     } catch {
-      sessionStorage.removeItem(SESSION_KEY);
+      this.clearStoredSession();
     }
   }
 
+  private clearStoredSession(): void {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
+    try { localStorage.removeItem(SESSION_BACKUP_KEY); } catch { /* noop */ }
+  }
+
+  private ensurePlayerId(): string {
+    if (this._localPlayer?.playerId) return this._localPlayer.playerId;
+    return newPlayerId();
+  }
+
   private async tryAutoReconnectToRoom(): Promise<void> {
-    if (!this._localPlayer) return;
+    if (!this._localPlayer?.playerId || !this._localPlayer.roomCode) return;
 
     try {
-      await this._hub!.invoke('Reconnect', this._localPlayer.roomCode, this._localPlayer.playerId);
+      await this._hub!.invoke(
+        'RejoinRoom',
+        this._localPlayer.roomCode,
+        this._localPlayer.playerId,
+      );
     } catch (err) {
-      console.warn('[RoomService] Auto-reconexión fallida:', err);
-      // No limpiar sesión aquí; el servidor enviará Error si expiró
+      console.warn('[RoomService] RejoinRoom falló, reintentando alias Reconnect:', err);
+      try {
+        await this._hub!.invoke(
+          'Reconnect',
+          this._localPlayer.roomCode,
+          this._localPlayer.playerId,
+        );
+      } catch (retryErr) {
+        console.warn('[RoomService] Auto-reconexión fallida:', retryErr);
+      }
     }
   }
 
@@ -369,6 +415,13 @@ const GAME_PHASES: GameStateDto['phase'][] = [
   'ShowingResults',
   'Closed',
 ];
+
+function newPlayerId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+  return `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function normalizeRole(raw: unknown): GameStateDto['players'][number]['role'] {
   if (raw === 0 || raw === 'Redactor') return 'Redactor';

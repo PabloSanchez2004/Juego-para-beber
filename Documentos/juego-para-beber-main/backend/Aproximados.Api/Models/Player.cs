@@ -40,6 +40,17 @@ public sealed class Player
     /// <summary>Indica si el jugador está conectado actualmente.</summary>
     public bool IsConnected { get; set; } = true;
 
+    /// <summary>
+    /// Inverso de <see cref="IsConnected"/>. En OnDisconnectedAsync se pone a true
+    /// sin expulsar al jugador: el asiento se reserva hasta que expire el grace period
+    /// o hasta que RejoinRoom actualice el ConnectionId.
+    /// </summary>
+    public bool IsDisconnected
+    {
+        get => !IsConnected;
+        set => IsConnected = !value;
+    }
+
     /// <summary>Momento de la última desconexión (para timeout de reconexión).</summary>
     public DateTimeOffset? DisconnectedAt { get; set; }
 
