@@ -18,7 +18,9 @@ import {
 } from '../models/game.models';
 import { environment } from '../../environments/environment';
 
-const HUB_URL = (window as any).__APROXIMADOS_HUB_URL__ ?? environment.hubUrl;
+const HUB_URL = environment.hubUrl.includes('localhost')
+  ? 'https://juego-para-beber.onrender.com/gamehub'
+  : environment.hubUrl;
 
 const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
 const SESSION_KEY = 'aproximados_session';
