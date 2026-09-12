@@ -22,7 +22,13 @@ import { environment } from '../../environments/environment';
 const PRODUCTION_API_URL = 'https://juego-para-beber.onrender.com';
 
 const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
+const CONNECT_TIMEOUT_MS = 15_000;
 const SESSION_KEY = 'aproximados_session';
+
+const SIGNALR_TRANSPORTS =
+  HttpTransportType.WebSockets |
+  HttpTransportType.ServerSentEvents |
+  HttpTransportType.LongPolling;
 
 @Injectable({ providedIn: 'root' })
 export class RoomService implements OnDestroy {
@@ -70,7 +76,7 @@ export class RoomService implements OnDestroy {
     this._hub = new HubConnectionBuilder()
       .withUrl(hubUrl, {
         skipNegotiation: false,
-        transport: HttpTransportType.WebSockets,
+        transport: SIGNALR_TRANSPORTS,
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (ctx) => {
@@ -78,8 +84,11 @@ export class RoomService implements OnDestroy {
           return RECONNECT_DELAYS_MS[idx];
         },
       })
-      .configureLogging(LogLevel.Warning)
+      .configureLogging(LogLevel.Information)
       .build();
+
+    this._hub.serverTimeoutInMilliseconds = 60_000;
+    this._hub.keepAliveIntervalInMilliseconds = 15_000;
 
     this.registerHandlers();
 
@@ -99,11 +108,14 @@ export class RoomService implements OnDestroy {
     });
 
     try {
-      await this._hub.start();
+      await this.startWithTimeout(this._hub, CONNECT_TIMEOUT_MS);
+      console.info(`[RoomService] Connected via ${this._hub.connectionId ?? 'unknown id'}`);
       this._connectionStatus$.next('connected');
       await this.tryAutoReconnectToRoom();
     } catch (err) {
       console.error('[RoomService] Error al conectar:', err);
+      await this._hub.stop().catch(() => undefined);
+      this._hub = null;
       this._connectionStatus$.next('failed');
       throw err;
     }
@@ -241,6 +253,23 @@ export class RoomService implements OnDestroy {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
+
+  private async startWithTimeout(hub: HubConnection, timeoutMs: number): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        hub.start(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`SignalR start timeout after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
 
   private getHubUrl(): string {
     const baseUrl = (environment.apiUrl || PRODUCTION_API_URL).replace(/\/$/, '');
