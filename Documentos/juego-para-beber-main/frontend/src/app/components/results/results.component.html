@@ -136,46 +136,140 @@
         }
       </section>
 
-      <!-- ── Marcador acumulado ─────────────────────────────────────── -->
-      <section class="card mb-6 animate-slide-up delay-2">
-        <div class="flex items-baseline justify-between mb-4">
-          <h3 class="eyebrow">Marcador</h3>
-          <span class="text-slate-500 text-xs">Acumulado</span>
-        </div>
+      <!-- ── Marcador acumulado (solo entre rondas) ─────────────────── -->
+      @if (!isLastRound()) {
+        <section class="card mb-6 animate-slide-up delay-2">
+          <div class="flex items-baseline justify-between mb-4">
+            <h3 class="eyebrow">Marcador</h3>
+            <span class="text-slate-500 text-xs">Acumulado</span>
+          </div>
 
-        <ul class="divide-y divide-white/5">
-          @for (player of scoreboard(); track player.playerId) {
-            <li class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-              <span
-                class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                [ngClass]="isMe(player.playerId)
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-white/5 text-slate-300 border border-white/10'">
-                {{ initialOf(player.name) }}
-              </span>
+          <ul class="divide-y divide-white/5">
+            @for (player of scoreboard(); track player.playerId) {
+              <li class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                  [ngClass]="isMe(player.playerId)
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-white/5 text-slate-300 border border-white/10'">
+                  {{ initialOf(player.name) }}
+                </span>
 
-              <div class="flex-1 min-w-0">
-                <p class="text-slate-100 font-semibold text-sm truncate">
-                  {{ player.name }}
-                  @if (isMe(player.playerId)) {
-                    <span class="text-slate-500 font-normal">· tú</span>
-                  }
-                </p>
-                <p class="text-slate-500 text-xs">
-                  {{ isRedactor(player.playerId) ? '✍️ Redactor esta ronda' : (player.isConnected ? 'Estimador' : 'Desconectado') }}
-                </p>
+                <div class="flex-1 min-w-0">
+                  <p class="text-slate-100 font-semibold text-sm truncate">
+                    {{ player.name }}
+                    @if (isMe(player.playerId)) {
+                      <span class="text-slate-500 font-normal">· tú</span>
+                    }
+                  </p>
+                  <p class="text-slate-500 text-xs">
+                    {{ isRedactor(player.playerId) ? '✍️ Redactor esta ronda' : (player.isConnected ? 'Estimador' : 'Desconectado') }}
+                  </p>
+                </div>
+
+                <div class="text-right shrink-0">
+                  <p class="text-white font-bold text-sm tabular-nums">{{ player.score }} <span class="text-slate-500 font-medium">pts</span></p>
+                  <p class="text-slate-400 text-xs tabular-nums">
+                    {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ player.drinksOwed }}
+                  </p>
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      <!-- ── Clasificación final (última ronda) ─────────────────────── -->
+      @if (isLastRound()) {
+        <section class="mb-6 animate-slide-up delay-2" aria-label="Clasificación final">
+          <div class="text-center mb-4">
+            <p class="text-4xl mb-2">🏆</p>
+            <h3 class="text-2xl font-extrabold text-white tracking-tight">Clasificación final</h3>
+            <p class="text-slate-400 text-sm mt-1">{{ s.maxRounds }} {{ s.maxRounds === 1 ? 'ronda' : 'rondas' }} · {{ s.roomCode }}</p>
+          </div>
+
+          <div class="card-elevated mb-4">
+            @if (finalIsTie()) {
+              <p class="text-slate-200 text-sm leading-relaxed text-center">
+                Empate total. Decidid entre todos si bebéis o si esto queda en tablas.
+              </p>
+            } @else {
+              <div class="space-y-3">
+                <div class="flex gap-3 items-start">
+                  <span class="badge-gold shrink-0">🎯 Elige quién bebe</span>
+                  <p class="text-slate-200 text-sm leading-snug">
+                    <span class="text-gold-300 font-semibold">{{ finalBestNames() }}</span>
+                    gana la partida y señala a la víctima.
+                  </p>
+                </div>
+                @if (finalWorstNames()) {
+                  <div class="flex gap-3 items-start">
+                    <span class="badge-red shrink-0">🍺 Bebe</span>
+                    <p class="text-slate-200 text-sm leading-snug">
+                      <span class="text-red-300 font-semibold">{{ finalWorstNames() }}</span>
+                      cierra la clasificación: te toca beber.
+                    </p>
+                  </div>
+                }
               </div>
+            }
+          </div>
 
-              <div class="text-right shrink-0">
-                <p class="text-white font-bold text-sm tabular-nums">{{ player.score }} <span class="text-slate-500 font-medium">pts</span></p>
-                <p class="text-slate-400 text-xs tabular-nums">
-                  {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ player.drinksOwed }}
-                </p>
-              </div>
-            </li>
-          }
-        </ul>
-      </section>
+          <div class="overflow-hidden rounded-3xl border border-white/5 shadow-card bg-ink-900">
+            <table class="w-full text-left">
+              <caption class="sr-only">Clasificación final por puntos</caption>
+              <thead>
+                <tr class="text-[11px] uppercase tracking-[0.14em] text-slate-500 border-b border-white/5">
+                  <th class="px-4 py-3 font-semibold w-12">#</th>
+                  <th class="px-2 py-3 font-semibold">Jugador</th>
+                  <th class="px-4 py-3 font-semibold text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of finalStandings(); track row.player.playerId) {
+                  <tr
+                    class="border-b border-white/5 last:border-0 align-top"
+                    [ngClass]="{
+                      'bg-gold-400/10': row.outcome === 'best',
+                      'bg-red-500/10': row.outcome === 'worst'
+                    }">
+                    <td class="px-4 py-3">
+                      <span
+                        class="inline-flex w-8 h-8 rounded-xl items-center justify-center font-extrabold text-sm tabular-nums"
+                        [ngClass]="{
+                          'bg-gold-400 text-ink-950': row.outcome === 'best',
+                          'bg-red-500 text-white': row.outcome === 'worst',
+                          'bg-white/5 text-slate-300': row.outcome === 'mid'
+                        }">
+                        {{ row.place }}
+                      </span>
+                    </td>
+                    <td class="px-2 py-3 pr-3">
+                      <p class="font-bold text-white text-sm truncate">
+                        {{ row.player.name }}
+                        @if (isMe(row.player.playerId)) {
+                          <span class="text-slate-500 font-medium">· tú</span>
+                        }
+                      </p>
+                      <p class="text-slate-400 text-xs mt-1 leading-snug">{{ row.comment }}</p>
+                      @if (row.outcome === 'best') {
+                        <p class="text-gold-300 text-xs font-semibold mt-1.5">🎯 Elige quién bebe</p>
+                      }
+                      @if (row.outcome === 'worst') {
+                        <p class="text-red-300 text-xs font-semibold mt-1.5">🍺 Te toca beber</p>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <p class="text-white font-extrabold tabular-nums">{{ row.player.score }}</p>
+                      <p class="text-slate-500 text-xs tabular-nums">{{ row.player.drinksOwed }} 🍺</p>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
 
       <!-- ── Error ──────────────────────────────────────────────────── -->
       @if (errorMsg()) {
@@ -187,19 +281,20 @@
       <!-- ── CTA: siguiente ronda / fin ─────────────────────────────── -->
       <div class="mt-auto">
         @if (isLastRound()) {
-          <div class="card-elevated text-center mb-4">
-            <div class="text-4xl mb-2">🏆</div>
-            <h3 class="text-xl font-extrabold text-white">¡Juego terminado!</h3>
-            <p class="text-slate-400 text-sm mt-1">
-              Última ronda para <span class="text-gold-300 font-semibold">{{ r.winnerName }}</span>
-            </p>
-          </div>
           <button
             class="btn-primary"
             [disabled]="loading()"
-            (click)="nextRound()"
-            aria-label="Ver pantalla final">
-            Ver clasificación final
+            (click)="finishGame()"
+            aria-label="Terminar y volver al inicio">
+            @if (loading()) {
+              <span class="flex items-center justify-center gap-2">
+                <span class="loading-dot" style="animation-delay:0ms"></span>
+                <span class="loading-dot" style="animation-delay:150ms"></span>
+                <span class="loading-dot" style="animation-delay:300ms"></span>
+              </span>
+            } @else {
+              Terminar partida
+            }
           </button>
         } @else {
           <button

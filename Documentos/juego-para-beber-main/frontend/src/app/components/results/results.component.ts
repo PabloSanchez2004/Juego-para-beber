@@ -14,6 +14,11 @@ import {
   PlayerPublicDto,
   PlayerRoundResult,
 } from '../../models/game.models';
+import {
+  FinalStanding,
+  buildFinalStandings,
+  namesOf,
+} from '../../utils/standings-comments';
 
 /** Papel de cada jugador en el ranking de la ronda, según la distancia a la respuesta. */
 export type RankOutcome = 'winner' | 'loser' | 'neutral';
@@ -92,6 +97,19 @@ export class ResultsComponent implements OnInit, OnDestroy {
     return s ? s.roundNumber >= s.maxRounds : false;
   });
 
+  /** Tabla de clasificación al acabar la partida (puntos acumulados). */
+  finalStandings = computed<FinalStanding[]>(() => {
+    const s = this.state();
+    if (!s || !this.isLastRound()) return [];
+    return buildFinalStandings(s.players, s.roomCode);
+  });
+
+  finalBestNames = computed(() => namesOf(this.finalStandings(), 'best'));
+  finalWorstNames = computed(() => namesOf(this.finalStandings(), 'worst'));
+  finalIsTie = computed(() =>
+    this.finalStandings().length > 1 && this.finalStandings().every(r => r.outcome !== 'best')
+  );
+
   /** Tragos que reparte el ganador (viene del backend; 1 por defecto). */
   drinksToDistribute = computed(() => this.result()?.drinksToDistribute || 1);
 
@@ -137,6 +155,16 @@ export class ResultsComponent implements OnInit, OnDestroy {
     } catch {
       this.errorMsg.set('Error al avanzar a la siguiente ronda.');
       this.loading.set(false);
+    }
+  }
+
+  async finishGame(): Promise<void> {
+    if (this.loading()) return;
+    this.loading.set(true);
+    try {
+      await this.roomService.leaveRoom();
+    } finally {
+      this.router.navigate(['/']);
     }
   }
 

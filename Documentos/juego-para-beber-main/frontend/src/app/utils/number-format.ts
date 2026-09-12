@@ -1,5 +1,5 @@
-/** Escalas en español (escala larga): 1 billón = 10¹². */
-export type MagnitudeId = 'units' | 'thousands' | 'millions' | 'billions' | 'trillions';
+/** Escalas en español. El tope es miles de millones (10⁹). */
+export type MagnitudeId = 'units' | 'thousands' | 'millions' | 'billions';
 
 export interface Magnitude {
   id: MagnitudeId;
@@ -13,7 +13,6 @@ export const MAGNITUDES: Magnitude[] = [
   { id: 'thousands', label: 'Miles', shortLabel: 'mil', factor: 1_000 },
   { id: 'millions', label: 'Millones', shortLabel: 'M', factor: 1_000_000 },
   { id: 'billions', label: 'Miles de millones', shortLabel: 'mM', factor: 1_000_000_000 },
-  { id: 'trillions', label: 'Billones', shortLabel: 'B', factor: 1_000_000_000_000 },
 ];
 
 const esInt = new Intl.NumberFormat('es-ES', {
@@ -102,7 +101,6 @@ function singularLabel(id: MagnitudeId): string {
     case 'thousands': return 'mil';
     case 'millions': return 'millón';
     case 'billions': return 'mil millones';
-    case 'trillions': return 'billón';
     default: return 'unidad';
   }
 }

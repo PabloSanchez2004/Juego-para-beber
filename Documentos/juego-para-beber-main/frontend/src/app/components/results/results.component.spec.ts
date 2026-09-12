@@ -66,7 +66,7 @@ describe('ResultsComponent', () => {
   beforeEach(async () => {
     gameState$ = new BehaviorSubject<GameStateDto | null>(mockState);
 
-    mockRoomService = jasmine.createSpyObj('RoomService', ['nextRound'], {
+    mockRoomService = jasmine.createSpyObj('RoomService', ['nextRound', 'leaveRoom'], {
       gameState$: gameState$.asObservable(),
       error$: new Subject<string>().asObservable(),
       localPlayer: { playerId: 'p2', roomCode: 'TEST', name: 'Bob', alcoholFree: false },
@@ -211,5 +211,35 @@ describe('ResultsComponent', () => {
     mockRoomService.nextRound.and.returnValue(Promise.resolve());
     await component.nextRound();
     expect(mockRoomService.nextRound).toHaveBeenCalled();
+  });
+
+  it('should not build the final table until the last round', () => {
+    expect(component.finalStandings()).toEqual([]);
+  });
+
+  it('should show final standings with comments and drink rules on the last round', () => {
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
+    fixture.detectChanges();
+
+    const rows = component.finalStandings();
+    expect(rows.length).toBe(3);
+    expect(rows[0].player.name).toBe('Bob');
+    expect(rows[0].outcome).toBe('best');
+    expect(rows[rows.length - 1].outcome).toBe('worst');
+    expect(component.finalBestNames()).toBe('Bob');
+    expect(component.finalWorstNames()).toBe('Ana');
+    expect(component.finalIsTie()).toBeFalse();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Clasificación final');
+    expect(el.textContent).toContain('Elige quién bebe');
+    expect(el.textContent).toContain('Bebe');
+    expect(el.querySelector('table')).toBeTruthy();
+  });
+
+  it('should leave the room when finishing the game', async () => {
+    mockRoomService.leaveRoom.and.returnValue(Promise.resolve());
+    await component.finishGame();
+    expect(mockRoomService.leaveRoom).toHaveBeenCalled();
   });
 });

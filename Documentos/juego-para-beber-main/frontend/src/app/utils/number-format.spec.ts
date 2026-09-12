@@ -29,8 +29,11 @@ describe('number-format', () => {
     expect(describeResolvedGuess('1', magnitudeOf('millions'))).toContain('1.000.000');
   });
 
-  it('resolves miles de millones and billones', () => {
+  it('resolves miles de millones', () => {
     expect(resolveGuess('2', magnitudeOf('billions').factor)).toBe(2_000_000_000);
-    expect(resolveGuess('1', magnitudeOf('trillions').factor)).toBe(1_000_000_000_000);
+  });
+
+  it('does not offer billones as a scale', () => {
+    expect(magnitudeOf('trillions' as never).id).toBe('units');
   });
 });
