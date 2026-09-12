@@ -1,0 +1,36 @@
+# Tests (no van en la imagen de producción)
+Tests/
+
+# Artefactos de compilación
+bin/
+obj/
+
+# IDE y usuario
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Secretos y entorno local
+.env
+.env.*
+*.env
+appsettings.Development.json
+appsettings.Secrets.json
+appsettings.Production.json
+secrets.json
+
+# Git y docs
+.git/
+.gitignore
+.dockerignore
+*.md
+
+# Logs y SO
+*.log
+logs/
+.DS_Store
+Thumbs.db
