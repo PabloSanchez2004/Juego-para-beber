@@ -31,7 +31,7 @@ public sealed class RoundResult
 }
 
 /// <summary>Resultado individual de un jugador en una ronda.</summary>
-public sealed class PlayerRoundResult
+public sealed record PlayerRoundResult
 {
     public string PlayerId { get; init; } = string.Empty;
     public string PlayerName { get; init; } = string.Empty;

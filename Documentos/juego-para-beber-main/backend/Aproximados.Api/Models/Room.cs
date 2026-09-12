@@ -57,7 +57,7 @@ public sealed class Room
     public RoundResult? LastResult => _lastResult;
     public DateTimeOffset LastActivity => _lastActivity;
 
-    public IReadOnlyCollection<Player> Players => _players.Values;
+    public IReadOnlyCollection<Player> Players => _players.Values.ToList().AsReadOnly();
 
     // ── Operaciones atómicas ───────────────────────────────────────────────
 
@@ -337,7 +337,7 @@ public sealed class Room
             }
 
             _roundNumber++;
-            _redactorIndex = (_redactorIndex + 1) % Math.Max(1, _players.Count(p => p.IsConnected));
+            _redactorIndex = (_redactorIndex + 1) % Math.Max(1, _players.Values.Count(p => p.IsConnected));
             AssignRedactor();
 
             foreach (var p in _players.Values)
