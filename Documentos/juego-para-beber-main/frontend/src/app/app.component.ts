@@ -86,10 +86,12 @@ export class AppComponent implements OnInit, OnDestroy {
     }, 60 * 60 * 1000);
   }
 
-  private navigateToPhase(phase: GamePhase): void {
+  private navigateToPhase(phase: GamePhase | number): void {
     const current = this.router.url;
+    const phases: GamePhase[] = ['Lobby', 'WritingQuestion', 'CollectingGuesses', 'ShowingResults', 'Closed'];
+    const normalized = typeof phase === 'number' ? phases[phase] : phase;
 
-    switch (phase) {
+    switch (normalized) {
       case 'Lobby':
         if (!current.startsWith('/lobby')) this.router.navigate(['/lobby']);
         break;

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Aproximados.Api.Hubs;
 using Aproximados.Api.Services;
 
@@ -17,6 +19,12 @@ builder.Services.AddSignalR(options =>
     options.MaximumReceiveMessageSize = 32 * 1024; // 32 KB
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+})
+.AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
 // ── CORS ───────────────────────────────────────────────────────────────────

@@ -93,7 +93,10 @@ export class HomeComponent implements OnInit, OnDestroy {
       await this.roomService.createRoom(this.name().trim(), this.alcoholFree());
       // La navegación la gestiona AppComponent vía gameState$
     } catch (err) {
-      this.errorMsg.set('No se pudo conectar al servidor. ¿Está encendido el backend?');
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[Home] createRoom failed:', err);
+      this.errorMsg.set(message || 'No se pudo crear la sala. Inténtalo de nuevo.');
+    } finally {
       this.loading.set(false);
     }
   }
@@ -111,7 +114,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.alcoholFree(),
       );
     } catch (err) {
-      this.errorMsg.set('No se pudo conectar al servidor. ¿Está encendido el backend?');
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[Home] joinRoom failed:', err);
+      this.errorMsg.set(message || 'No se pudo unir a la sala. Inténtalo de nuevo.');
+    } finally {
       this.loading.set(false);
     }
   }

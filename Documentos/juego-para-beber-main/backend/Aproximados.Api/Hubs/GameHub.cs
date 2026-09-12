@@ -80,40 +80,48 @@ public sealed class GameHub : Hub
 
     public async Task CreateRoom(string name, bool alcoholFree)
     {
-        if (!ValidateName(name, out var nameError))
+        try
         {
-            await SendError(nameError);
-            return;
+            if (!ValidateName(name, out var nameError))
+            {
+                await SendError(nameError);
+                return;
+            }
+
+            var room = _roomManager.CreateRoom();
+            if (room is null)
+            {
+                await SendError("No se pueden crear más salas ahora mismo. Inténtalo en un momento.");
+                return;
+            }
+
+            var player = new Player
+            {
+                Name = name.Trim(),
+                ConnectionId = Context.ConnectionId,
+                AlcoholFree = alcoholFree
+            };
+
+            if (!room.TryAddPlayer(player))
+            {
+                _roomManager.RemoveRoom(room.Code);
+                await SendError("Error al crear la sala. Inténtalo de nuevo.");
+                return;
+            }
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, room.Code);
+            StoreContext(room.Code, player.PlayerId);
+
+            var state = room.ToDto(player.PlayerId);
+            await Clients.Caller.SendAsync("RoomCreated", room.Code, player.PlayerId, state);
+
+            _logger.LogInformation("Sala {Code} creada por {Name}", room.Code, name);
         }
-
-        var room = _roomManager.CreateRoom();
-        if (room is null)
+        catch (Exception ex)
         {
-            await SendError("No se pueden crear más salas ahora mismo. Inténtalo en un momento.");
-            return;
+            _logger.LogError(ex, "CreateRoom falló para {Name}", name);
+            await SendError($"Error al crear la sala: {ex.Message}");
         }
-
-        var player = new Player
-        {
-            Name = name.Trim(),
-            ConnectionId = Context.ConnectionId,
-            AlcoholFree = alcoholFree
-        };
-
-        if (!room.TryAddPlayer(player))
-        {
-            _roomManager.RemoveRoom(room.Code);
-            await SendError("Error al crear la sala. Inténtalo de nuevo.");
-            return;
-        }
-
-        await Groups.AddToGroupAsync(Context.ConnectionId, room.Code);
-        StoreContext(room.Code, player.PlayerId);
-
-        var state = room.ToDto(player.PlayerId);
-        await Clients.Caller.SendAsync("RoomCreated", room.Code, player.PlayerId, state);
-
-        _logger.LogInformation("Sala {Code} creada por {Name}", room.Code, name);
     }
 
     // ── Unirse a sala ──────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ const PRODUCTION_API_URL = 'https://juego-para-beber.onrender.com';
 
 const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
 const CONNECT_TIMEOUT_MS = 15_000;
+const INVOKE_TIMEOUT_MS = 15_000;
 const SESSION_KEY = 'aproximados_session';
 
 const SIGNALR_TRANSPORTS =
@@ -133,12 +134,22 @@ export class RoomService implements OnDestroy {
 
   async createRoom(name: string, alcoholFree: boolean): Promise<void> {
     await this.ensureConnected();
-    await this._hub!.invoke('CreateRoom', name, alcoholFree);
+    try {
+      await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, alcoholFree);
+    } catch (err) {
+      console.error('[RoomService] CreateRoom failed:', err);
+      throw err;
+    }
   }
 
   async joinRoom(code: string, name: string, alcoholFree: boolean): Promise<void> {
     await this.ensureConnected();
-    await this._hub!.invoke('JoinRoom', code.toUpperCase(), name, alcoholFree);
+    try {
+      await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, alcoholFree);
+    } catch (err) {
+      console.error('[RoomService] JoinRoom failed:', err);
+      throw err;
+    }
   }
 
   async startGame(maxRounds: number = 10): Promise<void> {
@@ -180,22 +191,48 @@ export class RoomService implements OnDestroy {
   private registerHandlers(): void {
     if (!this._hub) return;
 
-    this._hub.on('RoomCreated', (roomCode: string, playerId: string, state: GameStateDto) => {
-      this.saveSession({ playerId, roomCode, name: this.findPlayerName(state, playerId), alcoholFree: false });
-      this._gameState$.next(state);
+    this._hub.on('RoomCreated', (roomCode: string, playerId: string, raw: GameStateDto) => {
+      try {
+        const state = normalizeGameState(raw);
+        if (!state) throw new Error('RoomCreated sin estado válido');
+        this.saveSession({
+          playerId,
+          roomCode: roomCode || state.roomCode,
+          name: this.findPlayerName(state, playerId),
+          alcoholFree: false,
+        });
+        this._gameState$.next(state);
+      } catch (err) {
+        console.error('[RoomService] RoomCreated handler failed:', err, raw);
+        this._error$.next('La sala se creó pero no se pudo leer el estado. Recarga e inténtalo de nuevo.');
+      }
     });
 
-    this._hub.on('JoinedRoom', (playerId: string, state: GameStateDto) => {
-      this.saveSession({ playerId, roomCode: state.roomCode, name: this.findPlayerName(state, playerId), alcoholFree: false });
-      this._gameState$.next(state);
+    this._hub.on('JoinedRoom', (playerId: string, raw: GameStateDto) => {
+      try {
+        const state = normalizeGameState(raw);
+        if (!state) throw new Error('JoinedRoom sin estado válido');
+        this.saveSession({
+          playerId,
+          roomCode: state.roomCode,
+          name: this.findPlayerName(state, playerId),
+          alcoholFree: false,
+        });
+        this._gameState$.next(state);
+      } catch (err) {
+        console.error('[RoomService] JoinedRoom handler failed:', err, raw);
+        this._error$.next('Te uniste a la sala pero no se pudo leer el estado.');
+      }
     });
 
-    this._hub.on('ReconnectedRoom', (state: GameStateDto) => {
-      this._gameState$.next(state);
+    this._hub.on('ReconnectedRoom', (raw: GameStateDto) => {
+      const state = normalizeGameState(raw);
+      if (state) this._gameState$.next(state);
     });
 
-    this._hub.on('GameStateUpdated', (state: GameStateDto) => {
-      this._gameState$.next(state);
+    this._hub.on('GameStateUpdated', (raw: GameStateDto) => {
+      const state = normalizeGameState(raw);
+      if (state) this._gameState$.next(state);
     });
 
     this._hub.on('GuessAcknowledged', () => {
@@ -254,6 +291,24 @@ export class RoomService implements OnDestroy {
 
   // ── Helpers ────────────────────────────────────────────────────────────
 
+  private async invokeWithTimeout(method: string, timeoutMs: number, ...args: unknown[]): Promise<void> {
+    if (!this._hub) throw new Error('Hub no conectado');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        this._hub.invoke(method, ...args),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${method} timeout after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   private async startWithTimeout(hub: HubConnection, timeoutMs: number): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -292,7 +347,7 @@ export class RoomService implements OnDestroy {
   }
 
   private findPlayerName(state: GameStateDto, playerId: string): string {
-    return state.players.find(p => p.playerId === playerId)?.name ?? '';
+    return state.players?.find(p => p.playerId === playerId)?.name ?? '';
   }
 
   /** Snapshot del estado actual (sin suscripción) */
@@ -303,4 +358,52 @@ export class RoomService implements OnDestroy {
   get isConnected(): boolean {
     return this._hub?.state === HubConnectionState.Connected;
   }
+}
+
+const GAME_PHASES: GameStateDto['phase'][] = [
+  'Lobby',
+  'WritingQuestion',
+  'CollectingGuesses',
+  'ShowingResults',
+  'Closed',
+];
+
+function normalizeRole(raw: unknown): GameStateDto['players'][number]['role'] {
+  if (raw === 0 || raw === 'Redactor') return 'Redactor';
+  return 'Estimator';
+}
+
+function normalizeGameState(raw: unknown): GameStateDto | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const src = raw as Record<string, unknown>;
+  const phaseRaw = src['phase'] ?? src['Phase'];
+  const phase = typeof phaseRaw === 'number'
+    ? GAME_PHASES[phaseRaw]
+    : (phaseRaw as GameStateDto['phase']);
+
+  const playersRaw = (src['players'] ?? src['Players'] ?? []) as Array<Record<string, unknown>>;
+
+  return {
+    roomCode: String(src['roomCode'] ?? src['RoomCode'] ?? ''),
+    phase,
+    roundNumber: Number(src['roundNumber'] ?? src['RoundNumber'] ?? 0),
+    currentQuestion: (src['currentQuestion'] ?? src['CurrentQuestion'] ?? null) as string | null,
+    redactorPlayerId: (src['redactorPlayerId'] ?? src['RedactorPlayerId'] ?? null) as string | null,
+    players: playersRaw.map(p => ({
+      playerId: String(p['playerId'] ?? p['PlayerId'] ?? ''),
+      name: String(p['name'] ?? p['Name'] ?? ''),
+      role: normalizeRole(p['role'] ?? p['Role']),
+      score: Number(p['score'] ?? p['Score'] ?? 0),
+      drinksOwed: Number(p['drinksOwed'] ?? p['DrinksOwed'] ?? 0),
+      isConnected: Boolean(p['isConnected'] ?? p['IsConnected'] ?? true),
+      alcoholFree: Boolean(p['alcoholFree'] ?? p['AlcoholFree'] ?? false),
+      guess: (p['guess'] ?? p['Guess'] ?? null) as number | null,
+    })),
+    lastResult: (src['lastResult'] ?? src['LastResult'] ?? null) as GameStateDto['lastResult'],
+    maxRounds: Number(src['maxRounds'] ?? src['MaxRounds'] ?? 10),
+    isAlcoholFreeRoom: Boolean(src['isAlcoholFreeRoom'] ?? src['IsAlcoholFreeRoom'] ?? false),
+    guessesSubmitted: Number(src['guessesSubmitted'] ?? src['GuessesSubmitted'] ?? 0),
+    guessesExpected: Number(src['guessesExpected'] ?? src['GuessesExpected'] ?? 0),
+  };
 }
