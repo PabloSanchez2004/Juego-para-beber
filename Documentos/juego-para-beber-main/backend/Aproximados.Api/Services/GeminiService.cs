@@ -10,7 +10,7 @@ namespace Aproximados.Api.Services;
 /// 1. Obtener la respuesta numérica verificada a una pregunta.
 /// 2. Generar un comentario sarcástico para el perdedor.
 ///
-/// Usa Gemini Flash (por defecto gemini-2.5-flash) con Google Search grounding.
+/// Usa Gemini Flash (por defecto gemini-3.6-flash) con Google Search grounding.
 ///
 /// IMPORTANTE: La API key se lee de la variable de entorno GEMINI_API_KEY.
 /// Nunca se expone al frontend.
@@ -29,7 +29,7 @@ public sealed class GeminiService
     // ]
 
     private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
-    private const string DefaultModelId = "gemini-2.5-flash";
+    private const string DefaultModelId = "gemini-3.6-flash";
 
     private readonly HttpClient _http;
     private readonly ILogger<GeminiService> _logger;
