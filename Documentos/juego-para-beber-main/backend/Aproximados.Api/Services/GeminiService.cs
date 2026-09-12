@@ -213,7 +213,7 @@ public sealed class GeminiService
             GenerationConfig = new GeminiGenerationConfig
             {
                 Temperature = 0.1f,
-                MaxOutputTokens = 512
+                MaxOutputTokens = 160
             }
         };
 
@@ -229,26 +229,25 @@ public sealed class GeminiService
     private static string BuildAnswerPrompt(string question)
     {
         return $$"""
-            Eres un asistente de verificación de datos para el juego "Aproximados".
-            Tu tarea es encontrar la respuesta numérica exacta y verificable a esta pregunta usando búsqueda web.
-            
-            Pregunta: "{{question}}"
-            
-            Reglas:
-            1. Busca la respuesta en fuentes fiables y actuales.
-            2. "value" debe ser UN solo número (entero o decimal). Nunca un rango, lista, intervalo ni texto.
-            3. Si las fuentes dan una horquilla o rango (ej: 10-20, "entre 100 y 150"), usa la media aritmética de los extremos. En explanation indica el rango original y que se usó el punto medio.
-            4. Si la respuesta puede variar (ej: precio de bolsa), usa el valor más reciente verificable, un solo número.
-            5. Si NO puedes verificar la respuesta con certeza, indica is_verifiable: false.
-            6. Responde SOLO en el formato JSON especificado. No añadas markdown ni texto fuera del JSON.
-            
-            Responde en JSON con este esquema exacto:
+            Actúa como un motor de validación estricto para un juego de preguntas numéricas.
+            Pregunta a evaluar: "{{question}}"
+
+            Tu única tarea es analizar la pregunta, buscar el dato real y extraer UN solo número.
+            Si las fuentes dan una horquilla o rango (ej: 10-20), usa la media aritmética de los extremos.
+
+            Responde ÚNICAMENTE en JSON estricto, plano, sin markdown (sin ```json), sin texto adicional:
+
             {
-              "value": <número>,
-              "unit": "<unidad de medida o vacío>",
-              "source": "<URL o nombre de la fuente>",
-              "is_verifiable": <true|false>,
-              "explanation": "<breve explicación en español>"
+              "IsValid": true,
+              "CorrectAnswer": 123.45,
+              "Explanation": "Breve motivo de 1 línea"
+            }
+
+            Si la pregunta no tiene sentido, es imposible de verificar numéricamente o es una broma absurda, devuelve:
+            {
+              "IsValid": false,
+              "CorrectAnswer": 0,
+              "Explanation": "La pregunta no se puede verificar numéricamente con datos concretos."
             }
             """;
     }
@@ -261,42 +260,98 @@ public sealed class GeminiService
             if (string.IsNullOrWhiteSpace(text))
                 return GeminiAnswerResult.Unverifiable("Respuesta vacía de la IA.");
 
-            // Limpiar posibles bloques de código markdown
-            text = text.Trim();
-            if (text.StartsWith("```json")) text = text[7..];
-            if (text.StartsWith("```")) text = text[3..];
-            if (text.EndsWith("```")) text = text[..^3];
-            text = text.Trim();
+            text = SanitizeGeminiJson(text);
 
             using var parsed = JsonDocument.Parse(text);
             var root = parsed.RootElement;
 
-            bool isVerifiable = root.TryGetProperty("is_verifiable", out var iv) && iv.GetBoolean();
-            if (!isVerifiable)
+            bool isValid = ReadBoolean(root, "IsValid", "isValid", "is_verifiable");
+            string expl = ReadString(root, "Explanation", "explanation");
+
+            if (!isValid)
             {
-                var explanation = root.TryGetProperty("explanation", out var exp)
-                    ? exp.GetString() ?? "No verificable."
-                    : "No verificable.";
-                return GeminiAnswerResult.Unverifiable(explanation);
+                return GeminiAnswerResult.Unverifiable(
+                    string.IsNullOrWhiteSpace(expl)
+                        ? "La pregunta no se puede verificar numéricamente con datos concretos."
+                        : expl);
             }
 
-            if (!root.TryGetProperty("value", out var valProp))
+            if (!TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "value"))
                 return GeminiAnswerResult.Unverifiable("La IA no devolvió un valor numérico.");
 
-            double value = valProp.ValueKind == JsonValueKind.Number
-                ? valProp.GetDouble()
-                : double.Parse(valProp.GetString() ?? "0");
-
-            string source = root.TryGetProperty("source", out var src) ? src.GetString() ?? "" : "";
-            string unit = root.TryGetProperty("unit", out var u) ? u.GetString() ?? "" : "";
-            string expl = root.TryGetProperty("explanation", out var e) ? e.GetString() ?? "" : "";
-
+            string source = ReadString(root, "source", "Source");
+            string unit = ReadString(root, "unit", "Unit");
             return new GeminiAnswerResult(value, unit, source, true, expl);
         }
         catch (Exception)
         {
             return GeminiAnswerResult.Unverifiable("No se pudo parsear la respuesta de la IA.");
         }
+    }
+
+    private static string SanitizeGeminiJson(string text)
+    {
+        text = text.Replace("```json", "", StringComparison.OrdinalIgnoreCase)
+                   .Replace("```", "")
+                   .Trim();
+
+        int start = text.IndexOf('{');
+        int end = text.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            text = text[start..(end + 1)];
+
+        return text.Trim();
+    }
+
+    private static bool ReadBoolean(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var prop)) continue;
+            return prop.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String => bool.TryParse(prop.GetString(), out var b) && b,
+                _ => false
+            };
+        }
+
+        return false;
+    }
+
+    private static bool TryReadNumber(JsonElement root, out double value, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var prop)) continue;
+            if (prop.ValueKind == JsonValueKind.Number)
+            {
+                value = prop.GetDouble();
+                return true;
+            }
+
+            if (prop.ValueKind == JsonValueKind.String &&
+                double.TryParse(prop.GetString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out value))
+            {
+                return true;
+            }
+        }
+
+        value = 0;
+        return false;
+    }
+
+    private static string ReadString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var prop))
+                return prop.GetString() ?? string.Empty;
+        }
+
+        return string.Empty;
     }
 
     private static string ExtractTextFromResponse(JsonDocument doc)
@@ -323,13 +378,11 @@ public sealed class GeminiService
         Type = "object",
         Properties = new GeminiSchemaProperties
         {
-            Value = new GeminiSchemaTypeProperty { Type = "number" },
-            Unit = new GeminiSchemaTypeProperty { Type = "string" },
-            Source = new GeminiSchemaTypeProperty { Type = "string" },
-            IsVerifiable = new GeminiSchemaTypeProperty { Type = "boolean" },
+            IsValid = new GeminiSchemaTypeProperty { Type = "boolean" },
+            CorrectAnswer = new GeminiSchemaTypeProperty { Type = "number" },
             Explanation = new GeminiSchemaTypeProperty { Type = "string" }
         },
-        Required = ["value", "unit", "source", "is_verifiable", "explanation"]
+        Required = ["IsValid", "CorrectAnswer", "Explanation"]
     };
 }
 
@@ -414,19 +467,13 @@ public sealed class GeminiResponseSchema
 
 public sealed class GeminiSchemaProperties
 {
-    [JsonPropertyName("value")]
-    public GeminiSchemaTypeProperty Value { get; set; } = new();
+    [JsonPropertyName("IsValid")]
+    public GeminiSchemaTypeProperty IsValid { get; set; } = new();
 
-    [JsonPropertyName("unit")]
-    public GeminiSchemaTypeProperty Unit { get; set; } = new();
+    [JsonPropertyName("CorrectAnswer")]
+    public GeminiSchemaTypeProperty CorrectAnswer { get; set; } = new();
 
-    [JsonPropertyName("source")]
-    public GeminiSchemaTypeProperty Source { get; set; } = new();
-
-    [JsonPropertyName("is_verifiable")]
-    public GeminiSchemaTypeProperty IsVerifiable { get; set; } = new();
-
-    [JsonPropertyName("explanation")]
+    [JsonPropertyName("Explanation")]
     public GeminiSchemaTypeProperty Explanation { get; set; } = new();
 }
 
