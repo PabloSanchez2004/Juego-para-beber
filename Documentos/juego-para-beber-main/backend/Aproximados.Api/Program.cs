@@ -20,11 +20,6 @@ builder.Services.AddSignalR(options =>
 });
 
 // ── CORS ───────────────────────────────────────────────────────────────────
-// [RELLENAR_AQUI_PABLO: Reemplaza los orígenes de CORS con la URL real de tu
-//  frontend Angular desplegado. En desarrollo, http://localhost:4200 es correcto.
-//  En producción, usa la URL exacta (ej: https://aproximados.tudominio.com).
-//  NUNCA uses AllowAnyOrigin() en producción con AllowCredentials().
-// ]
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()

@@ -16,13 +16,9 @@ import {
   GameStateDto,
   LocalPlayerState,
 } from '../models/game.models';
+import { environment } from '../../environments/environment';
 
-// [RELLENAR_AQUI_PABLO: Reemplaza esta URL con la URL real de tu backend .NET
-//  desplegado. En desarrollo local usa http://localhost:5000/gamehub.
-//  En producción usa https://tu-backend.tudominio.com/gamehub.
-//  Esta URL se puede configurar también en environment.ts.
-// ]
-const HUB_URL = (window as any).__APROXIMADOS_HUB_URL__ ?? 'http://localhost:5000/gamehub';
+const HUB_URL = (window as any).__APROXIMADOS_HUB_URL__ ?? environment.hubUrl;
 
 const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
 const SESSION_KEY = 'aproximados_session';
