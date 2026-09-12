@@ -20,6 +20,8 @@ builder.Services.AddSignalR(options =>
 });
 
 // ── CORS ───────────────────────────────────────────────────────────────────
+// AllowAnyOrigin() no se puede combinar con AllowCredentials() (SignalR lo exige).
+// Se validan orígenes en runtime: localhost, *.vercel.app y la lista de appsettings.
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()
@@ -30,10 +32,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AproximadosPolicy", policy =>
     {
         policy
-            .WithOrigins(allowedOrigins)
+            .SetIsOriginAllowed(origin => IsAllowedCorsOrigin(origin, allowedOrigins))
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // Requerido para SignalR WebSockets
+            .AllowCredentials();
     });
 });
 
@@ -62,3 +64,14 @@ app.MapHub<GameHub>("/gamehub");
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTimeOffset.UtcNow }));
 
 app.Run();
+
+static bool IsAllowedCorsOrigin(string? origin, string[] configuredOrigins)
+{
+    if (string.IsNullOrWhiteSpace(origin)) return false;
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+
+    if (uri.Host is "localhost" or "127.0.0.1") return true;
+    if (uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)) return true;
+
+    return configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
+}
