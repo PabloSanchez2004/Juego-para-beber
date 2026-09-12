@@ -8,7 +8,7 @@ namespace Aproximados.Api.Hubs;
 /// Hub SignalR principal del juego Aproximados.
 ///
 /// Protocolo cliente→servidor (métodos invocables):
-///   CreateRoom(name, alcoholFree)         → RoomCreated | Error
+///   CreateRoom(name, alcoholFree, maxRounds) → RoomCreated | Error
 ///   JoinRoom(code, name, alcoholFree)     → JoinedRoom | Error
 ///   Reconnect(code, playerId)             → ReconnectedRoom | Error
 ///   StartGame(maxRounds)                  → GameStateUpdated (broadcast)
@@ -78,7 +78,7 @@ public sealed class GameHub : Hub
 
     // ── Crear sala ─────────────────────────────────────────────────────────
 
-    public async Task CreateRoom(string name, bool alcoholFree)
+    public async Task CreateRoom(string name, bool alcoholFree, int maxRounds = Room.DefaultMaxRounds)
     {
         try
         {
@@ -94,6 +94,8 @@ public sealed class GameHub : Hub
                 await SendError("No se pueden crear más salas ahora mismo. Inténtalo en un momento.");
                 return;
             }
+
+            room.TrySetMaxRounds(maxRounds);
 
             var player = new Player
             {
@@ -225,6 +227,9 @@ public sealed class GameHub : Hub
         var (room, player) = await GetRoomAndPlayerOrError();
         if (room is null || player is null) return;
 
+        // Si el cliente no manda un valor útil, usamos el que el host eligió al crear la sala.
+        if (maxRounds < 1)
+            maxRounds = room.MaxRounds;
         maxRounds = Math.Clamp(maxRounds, 1, 20);
 
         if (!room.TryStartGame(maxRounds, room.IsAlcoholFreeRoom))

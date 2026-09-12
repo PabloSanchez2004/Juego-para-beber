@@ -132,20 +132,21 @@ export class RoomService implements OnDestroy {
 
   // ── Operaciones de sala ────────────────────────────────────────────────
 
-  async createRoom(name: string, alcoholFree: boolean): Promise<void> {
+  async createRoom(name: string, maxRounds: number = 10): Promise<void> {
     await this.ensureConnected();
     try {
-      await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, alcoholFree);
+      const rounds = Math.min(20, Math.max(1, Math.round(maxRounds) || 10));
+      await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, false, rounds);
     } catch (err) {
       console.error('[RoomService] CreateRoom failed:', err);
       throw err;
     }
   }
 
-  async joinRoom(code: string, name: string, alcoholFree: boolean): Promise<void> {
+  async joinRoom(code: string, name: string): Promise<void> {
     await this.ensureConnected();
     try {
-      await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, alcoholFree);
+      await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, false);
     } catch (err) {
       console.error('[RoomService] JoinRoom failed:', err);
       throw err;
@@ -154,7 +155,8 @@ export class RoomService implements OnDestroy {
 
   async startGame(maxRounds: number = 10): Promise<void> {
     await this.ensureConnected();
-    await this._hub!.invoke('StartGame', maxRounds);
+    const rounds = Math.min(20, Math.max(1, Math.round(maxRounds) || 10));
+    await this._hub!.invoke('StartGame', rounds);
   }
 
   async submitQuestion(question: string): Promise<void> {

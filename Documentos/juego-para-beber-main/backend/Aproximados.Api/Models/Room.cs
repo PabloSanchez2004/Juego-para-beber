@@ -90,6 +90,21 @@ public sealed class Room
     }
 
     /// <summary>
+    /// Fija el número de rondas mientras la sala está en Lobby.
+    /// El host lo elige al crear; StartGame lo respeta.
+    /// </summary>
+    public bool TrySetMaxRounds(int maxRounds)
+    {
+        lock (_lock)
+        {
+            if (_phase != GamePhase.Lobby) return false;
+            MaxRounds = Math.Clamp(maxRounds, 1, 20);
+            _lastActivity = DateTimeOffset.UtcNow;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Reconecta un jugador existente con un nuevo ConnectionId.
     /// Devuelve false si el PlayerId no existe o la sala está cerrada.
     /// </summary>

@@ -79,7 +79,15 @@ describe('LobbyComponent', () => {
   it('should call startGame on service', async () => {
     mockRoomService.startGame.and.returnValue(Promise.resolve());
     await component.startGame();
-    expect(mockRoomService.startGame).toHaveBeenCalled();
+    expect(mockRoomService.startGame).toHaveBeenCalledWith(10);
+  });
+
+  it('should start the game with the rounds chosen when the room was created', async () => {
+    gameState$.next({ ...mockState, maxRounds: 3 });
+    fixture.detectChanges();
+    mockRoomService.startGame.and.returnValue(Promise.resolve());
+    await component.startGame();
+    expect(mockRoomService.startGame).toHaveBeenCalledWith(3);
   });
 
   it('should not start if only 1 player connected', async () => {

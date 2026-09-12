@@ -77,13 +77,28 @@ describe('GameComponent', () => {
   });
 
   it('should validate guess: valid number', () => {
-    component.guessInput.set('42.5');
+    component.guessInput.set('42');
     expect(component.guessValid()).toBeTrue();
+  });
+
+  it('should format thousands with dots (1000 → 1.000)', () => {
+    const event = { target: { value: '1000' } } as unknown as Event;
+    component.onGuessInput(event);
+    expect(component.guessInput()).toBe('1.000');
+    expect(component.resolvedGuess()).toBe(1000);
+  });
+
+  it('should treat 1 + millones as 1.000.000', () => {
+    component.guessInput.set('1');
+    component.selectMagnitude('millions');
+    expect(component.resolvedGuess()).toBe(1_000_000);
+    expect(component.guessPreview()).toContain('1.000.000');
   });
 
   it('should validate guess: comma as decimal separator', () => {
     component.guessInput.set('42,5');
     expect(component.guessValid()).toBeTrue();
+    expect(component.resolvedGuess()).toBe(42.5);
   });
 
   it('should validate guess: negative number', () => {
@@ -110,7 +125,7 @@ describe('GameComponent', () => {
 
   it('should call submitGuess with parsed number', async () => {
     mockRoomService.submitGuess.and.returnValue(Promise.resolve());
-    component.guessInput.set('1234');
+    component.guessInput.set('1.234');
     await component.submitGuess();
     expect(mockRoomService.submitGuess).toHaveBeenCalledWith(1234);
   });

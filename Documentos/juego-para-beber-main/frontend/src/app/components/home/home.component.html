@@ -58,11 +58,15 @@
         </p>
       </div>
 
-      <!-- Rondas -->
-      <div>
-        <label for="max-rounds" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
-          Rondas: <span class="text-brand-300">{{ maxRounds() }}</span>
+      <!-- Rondas: el valor elegido se guarda en la sala y StartGame lo respeta -->
+      <div class="card">
+        <label for="max-rounds" class="block text-slate-400 text-sm font-semibold mb-3 uppercase tracking-wide">
+          Rondas de la partida
         </label>
+        <div class="flex items-end justify-between mb-3">
+          <span class="text-4xl font-extrabold text-white tabular-nums leading-none">{{ maxRounds() }}</span>
+          <span class="text-slate-500 text-sm">{{ maxRounds() === 1 ? 'ronda' : 'rondas' }}</span>
+        </div>
         <input
           id="max-rounds"
           type="range"
@@ -73,25 +77,10 @@
           [value]="maxRounds()"
           (input)="maxRounds.set(+($any($event.target).value))"
           aria-label="Número de rondas">
-        <div class="flex justify-between text-gray-600 text-xs mt-1">
+        <div class="flex justify-between text-slate-600 text-xs mt-2">
           <span>3</span><span>20</span>
         </div>
       </div>
-
-      <!-- Modo sin alcohol -->
-      <button
-        type="button"
-        class="w-full flex items-center justify-between bg-ink-900 rounded-2xl px-5 py-4
-               border shadow-card transition-all duration-150"
-        [ngClass]="alcoholFree() ? 'border-brand-400/60' : 'border-white/10'"
-        (click)="toggleAlcoholFree()"
-        [attr.aria-pressed]="alcoholFree()"
-        aria-label="Modo sin alcohol">
-        <span class="font-semibold text-white">
-          {{ alcoholFree() ? '🧃 Modo sin alcohol' : '🍺 Modo con alcohol' }}
-        </span>
-        <span class="text-2xl">{{ alcoholFree() ? '✅' : '⬜' }}</span>
-      </button>
 
       <!-- Error -->
       @if (errorMsg()) {
@@ -166,21 +155,6 @@
           Escupe el código aquí (4 letras)
         </p>
       </div>
-
-      <!-- Modo sin alcohol -->
-      <button
-        type="button"
-        class="w-full flex items-center justify-between bg-ink-900 rounded-2xl px-5 py-4
-               border shadow-card transition-all duration-150"
-        [ngClass]="alcoholFree() ? 'border-brand-400/60' : 'border-white/10'"
-        (click)="toggleAlcoholFree()"
-        [attr.aria-pressed]="alcoholFree()"
-        aria-label="Modo sin alcohol">
-        <span class="font-semibold text-white">
-          {{ alcoholFree() ? '🧃 Modo sin alcohol' : '🍺 Modo con alcohol' }}
-        </span>
-        <span class="text-2xl">{{ alcoholFree() ? '✅' : '⬜' }}</span>
-      </button>
 
       <!-- Error -->
       @if (errorMsg()) {

@@ -26,7 +26,6 @@ export class HomeComponent implements OnInit, OnDestroy {
   // Formulario
   name = signal('');
   roomCode = signal('');
-  alcoholFree = signal(false);
   maxRounds = signal(10);
 
   // Estado
@@ -90,7 +89,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.errorMsg.set('');
 
     try {
-      await this.roomService.createRoom(this.name().trim(), this.alcoholFree());
+      await this.roomService.createRoom(this.name().trim(), this.maxRounds());
       // La navegación la gestiona AppComponent vía gameState$
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -111,7 +110,6 @@ export class HomeComponent implements OnInit, OnDestroy {
       await this.roomService.joinRoom(
         this.roomCode().trim().toUpperCase(),
         this.name().trim(),
-        this.alcoholFree(),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -135,7 +133,4 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.name.set((event.target as HTMLInputElement).value);
   }
 
-  toggleAlcoholFree(): void {
-    this.alcoholFree.update(v => !v);
-  }
 }

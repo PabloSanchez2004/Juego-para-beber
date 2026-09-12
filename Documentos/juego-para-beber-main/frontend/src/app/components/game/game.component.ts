@@ -11,6 +11,16 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { RoomService } from '../../services/room.service';
 import { GameStateDto } from '../../models/game.models';
+import {
+  MAGNITUDES,
+  Magnitude,
+  MagnitudeId,
+  describeResolvedGuess,
+  formatEsNumber,
+  formatGuessTyping,
+  magnitudeOf,
+  resolveGuess,
+} from '../../utils/number-format';
 
 @Component({
   selector: 'app-game',
@@ -29,6 +39,9 @@ export class GameComponent implements OnInit, OnDestroy {
   // Formularios
   question = signal('');
   guessInput = signal('');
+  magnitudeId = signal<MagnitudeId>('units');
+
+  readonly magnitudes = MAGNITUDES;
 
   myPlayerId = computed(() => this.roomService.localPlayer?.playerId ?? '');
 
@@ -70,9 +83,24 @@ export class GameComponent implements OnInit, OnDestroy {
     this.question().trim().length >= 5 && this.question().trim().length <= 300
   );
 
+  selectedMagnitude = computed(() => magnitudeOf(this.magnitudeId()));
+
+  resolvedGuess = computed(() =>
+    resolveGuess(this.guessInput(), this.selectedMagnitude().factor)
+  );
+
   guessValid = computed(() => {
-    const val = parseFloat(this.guessInput().replace(',', '.'));
-    return !isNaN(val) && isFinite(val);
+    const val = this.resolvedGuess();
+    return val !== null;
+  });
+
+  guessPreview = computed(() =>
+    describeResolvedGuess(this.guessInput(), this.selectedMagnitude())
+  );
+
+  formattedResolvedGuess = computed(() => {
+    const val = this.resolvedGuess();
+    return val === null ? '' : formatEsNumber(val);
   });
 
   private subs = new Subscription();
@@ -99,6 +127,7 @@ export class GameComponent implements OnInit, OnDestroy {
           this.questionSent.set(false);
           this.guessSent.set(false);
           this.guessInput.set('');
+          this.magnitudeId.set('units');
           this.loading.set(false);
         }
       })
@@ -144,7 +173,9 @@ export class GameComponent implements OnInit, OnDestroy {
   async submitGuess(): Promise<void> {
     if (!this.guessValid() || this.loading() || this.guessSent()) return;
 
-    const val = parseFloat(this.guessInput().replace(',', '.'));
+    const val = this.resolvedGuess();
+    if (val === null) return;
+
     this.loading.set(true);
     this.errorMsg.set('');
 
@@ -171,11 +202,18 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   onGuessInput(event: Event): void {
-    const val = (event.target as HTMLInputElement).value;
-    // Permitir números, punto, coma, signo negativo
-    const cleaned = val.replace(/[^0-9.,\-]/g, '');
-    this.guessInput.set(cleaned);
-    (event.target as HTMLInputElement).value = cleaned;
+    const el = event.target as HTMLInputElement;
+    const formatted = formatGuessTyping(el.value);
+    this.guessInput.set(formatted);
+    el.value = formatted;
+  }
+
+  selectMagnitude(id: MagnitudeId): void {
+    this.magnitudeId.set(id);
+  }
+
+  isMagnitude(m: Magnitude): boolean {
+    return this.magnitudeId() === m.id;
   }
 
   trackByPlayerId(_: number, p: { playerId: string }): string {

@@ -93,14 +93,14 @@ describe('HomeComponent', () => {
     component.name.set('  Ana  ');
     mockRoomService.createRoom.and.returnValue(Promise.resolve());
     await component.createRoom();
-    expect(mockRoomService.createRoom).toHaveBeenCalledWith('Ana', false);
+    expect(mockRoomService.createRoom).toHaveBeenCalledWith('Ana', 10);
   });
 
-  it('should toggle alcoholFree', () => {
-    expect(component.alcoholFree()).toBeFalse();
-    component.toggleAlcoholFree();
-    expect(component.alcoholFree()).toBeTrue();
-    component.toggleAlcoholFree();
-    expect(component.alcoholFree()).toBeFalse();
+  it('should send the selected number of rounds when creating a room', async () => {
+    component.name.set('Ana');
+    component.maxRounds.set(3);
+    mockRoomService.createRoom.and.returnValue(Promise.resolve());
+    await component.createRoom();
+    expect(mockRoomService.createRoom).toHaveBeenCalledWith('Ana', 3);
   });
 });

@@ -243,6 +243,19 @@ public class RoomPhaseTests
     }
 
     [Fact]
+    public void TrySetMaxRounds_InLobby_IsHonoredByStartGame()
+    {
+        var room = new Room { Code = "RND3" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+
+        Assert.True(room.TrySetMaxRounds(3));
+        Assert.Equal(3, room.ToDto("p1").MaxRounds);
+        Assert.True(room.TryStartGame(room.MaxRounds, false));
+        Assert.Equal(3, room.MaxRounds);
+    }
+
+    [Fact]
     public void TryStartGame_WithEnoughPlayers_Succeeds()
     {
         var room = new Room { Code = "PH04" };

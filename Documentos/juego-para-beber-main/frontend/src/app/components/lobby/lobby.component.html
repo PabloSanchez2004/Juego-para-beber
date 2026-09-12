@@ -34,13 +34,11 @@
       </p>
     </div>
 
-    <!-- Modo de juego -->
+    <!-- Rondas de la partida (las elige el host al crear la sala) -->
     <div class="card mb-6 text-center">
-      <span class="text-2xl">{{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }}</span>
-      <p class="text-gray-300 font-semibold mt-1">
-        {{ s.isAlcoholFreeRoom ? 'Modo sin alcohol' : 'Modo con alcohol' }}
-      </p>
-      <p class="text-gray-600 text-sm">{{ s.maxRounds }} rondas</p>
+      <p class="eyebrow mb-2">Partida</p>
+      <p class="text-4xl font-extrabold text-white tabular-nums leading-none">{{ s.maxRounds }}</p>
+      <p class="text-slate-400 text-sm mt-2">{{ s.maxRounds === 1 ? 'ronda' : 'rondas' }}</p>
     </div>
 
     <!-- Lista de jugadores -->
@@ -75,9 +73,6 @@
               </p>
               <p class="text-gray-500 text-xs">
                 {{ player.isConnected ? '🟢 Conectado' : '🔴 Desconectado' }}
-                @if (player.alcoholFree) {
-                  · 🧃 Sin alcohol
-                }
               </p>
             </div>
 

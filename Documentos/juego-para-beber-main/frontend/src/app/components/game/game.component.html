@@ -9,9 +9,7 @@
         <span class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
           Ronda {{ s.roundNumber }} / {{ s.maxRounds }}
         </span>
-        <span class="text-gray-500 text-sm">
-          {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ s.roomCode }}
-        </span>
+        <span class="text-gray-500 text-sm font-semibold tracking-wider">{{ s.roomCode }}</span>
       </div>
       <!-- Barra de progreso de rondas -->
       <div class="progress-bar">
@@ -172,16 +170,38 @@
                 id="guess-input"
                 type="text"
                 inputmode="decimal"
-                class="input-field text-center text-3xl font-black"
+                class="input-field text-center text-3xl font-black tabular-nums tracking-wide"
                 placeholder="0"
                 [value]="guessInput()"
                 (input)="onGuessInput($event)"
                 [disabled]="guessSent() || loading()"
                 autocomplete="off"
                 aria-label="Escribe tu estimación numérica">
-              <p class="text-gray-600 text-xs mt-1 text-center">
-                Puedes usar decimales y números negativos
+
+              <p class="text-slate-500 text-xs mt-2 text-center min-h-[1.25rem]">
+                @if (guessPreview()) {
+                  <span class="text-slate-200 font-semibold">{{ guessPreview() }}</span>
+                } @else {
+                  Escribe un número. Los puntos marcan los miles: 1000 → 1.000
+                }
               </p>
+
+              <p class="eyebrow mt-5 mb-2">Escala</p>
+              <div class="grid grid-cols-2 gap-2" role="group" aria-label="Escala de la estimación">
+                @for (m of magnitudes; track m.id) {
+                  <button
+                    type="button"
+                    class="rounded-2xl px-3 py-2.5 text-sm font-semibold border transition-all duration-150"
+                    [class.col-span-2]="m.id === 'trillions'"
+                    [ngClass]="isMagnitude(m)
+                      ? 'bg-brand-500 text-white border-brand-400 shadow-button'
+                      : 'bg-ink-900 text-slate-300 border-white/10 hover:border-white/20'"
+                    [attr.aria-pressed]="isMagnitude(m)"
+                    (click)="selectMagnitude(m.id)">
+                    {{ m.label }}
+                  </button>
+                }
+              </div>
             </div>
 
             @if (errorMsg()) {
@@ -216,7 +236,10 @@
               </p>
               <div class="mt-6 card text-center w-full">
                 <p class="text-gray-500 text-sm">Tu estimación</p>
-                <p class="text-white font-black text-4xl mt-1">{{ guessInput() }}</p>
+                <p class="text-white font-black text-4xl mt-1 tabular-nums">{{ formattedResolvedGuess() }}</p>
+                @if (selectedMagnitude().id !== 'units') {
+                  <p class="text-slate-400 text-sm mt-2">{{ guessPreview() }}</p>
+                }
               </div>
             </div>
           }
