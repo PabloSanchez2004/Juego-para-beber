@@ -4,8 +4,8 @@
   <!-- Logo / título -->
   <div class="text-center mb-10">
     <div class="text-7xl mb-3" aria-hidden="true">🎯</div>
-    <h1 class="text-5xl font-black text-lime-400 tracking-tight">Aproximados</h1>
-    <p class="text-gray-400 mt-2 text-lg">El juego donde gana quien más se acerca</p>
+    <h1 class="text-5xl font-extrabold text-white tracking-tight">Aproximados</h1>
+    <p class="text-slate-400 mt-2 text-lg">El juego donde gana quien más se acerca</p>
   </div>
 
   <!-- ── Vista principal ── -->
@@ -61,7 +61,7 @@
       <!-- Rondas -->
       <div>
         <label for="max-rounds" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
-          Rondas: <span class="text-lime-400">{{ maxRounds() }}</span>
+          Rondas: <span class="text-brand-300">{{ maxRounds() }}</span>
         </label>
         <input
           id="max-rounds"
@@ -69,7 +69,7 @@
           min="3"
           max="20"
           step="1"
-          class="w-full accent-lime-400"
+          class="w-full accent-brand-500"
           [value]="maxRounds()"
           (input)="maxRounds.set(+($any($event.target).value))"
           aria-label="Número de rondas">
@@ -81,10 +81,9 @@
       <!-- Modo sin alcohol -->
       <button
         type="button"
-        class="w-full flex items-center justify-between bg-gray-900 rounded-2xl px-5 py-4
-               border-2 transition-all duration-150"
-        [class.border-lime-400]="alcoholFree()"
-        [class.border-gray-700]="!alcoholFree()"
+        class="w-full flex items-center justify-between bg-ink-900 rounded-2xl px-5 py-4
+               border shadow-card transition-all duration-150"
+        [ngClass]="alcoholFree() ? 'border-brand-400/60' : 'border-white/10'"
         (click)="toggleAlcoholFree()"
         [attr.aria-pressed]="alcoholFree()"
         aria-label="Modo sin alcohol">
@@ -96,8 +95,7 @@
 
       <!-- Error -->
       @if (errorMsg()) {
-        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                    text-red-300 text-sm animate-shake" role="alert">
+        <div class="alert-error animate-shake" role="alert">
           ⚠️ {{ errorMsg() }}
         </div>
       }
@@ -172,10 +170,9 @@
       <!-- Modo sin alcohol -->
       <button
         type="button"
-        class="w-full flex items-center justify-between bg-gray-900 rounded-2xl px-5 py-4
-               border-2 transition-all duration-150"
-        [class.border-lime-400]="alcoholFree()"
-        [class.border-gray-700]="!alcoholFree()"
+        class="w-full flex items-center justify-between bg-ink-900 rounded-2xl px-5 py-4
+               border shadow-card transition-all duration-150"
+        [ngClass]="alcoholFree() ? 'border-brand-400/60' : 'border-white/10'"
         (click)="toggleAlcoholFree()"
         [attr.aria-pressed]="alcoholFree()"
         aria-label="Modo sin alcohol">
@@ -187,8 +184,7 @@
 
       <!-- Error -->
       @if (errorMsg()) {
-        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                    text-red-300 text-sm animate-shake" role="alert">
+        <div class="alert-error animate-shake" role="alert">
           ⚠️ {{ errorMsg() }}
         </div>
       }

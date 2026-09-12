@@ -229,18 +229,42 @@ public sealed class Room
         {
             if (_phase != GamePhase.CollectingGuesses) return (false, false);
             if (!_players.TryGetValue(playerId, out var player)) return (false, false);
-            if (player.Role == PlayerRole.Redactor) return (false, false);
+            if (!IsEstimator(player)) return (false, false); // el Redactor no adivina
             if (player.Guess.HasValue) return (false, false); // ya envió
 
             player.Guess = guess;
             _lastActivity = DateTimeOffset.UtcNow;
 
-            bool allSubmitted = _players.Values
-                .Where(p => p.IsConnected && p.Role == PlayerRole.Estimator)
-                .All(p => p.Guess.HasValue);
-
-            return (true, allSubmitted);
+            return (true, AllGuessesSubmitted());
         }
+    }
+
+    /// <summary>
+    /// Un jugador es estimador si NO es el Redactor de la ronda.
+    /// Se decide por <see cref="_redactorPlayerId"/> (fuente de verdad) y no por
+    /// <see cref="Player.Role"/>, que es un campo derivado que podría quedar
+    /// desincronizado. Así la condición de cierre es siempre
+    /// «estimaciones recibidas == jugadores conectados - 1 (el Redactor)».
+    /// </summary>
+    private bool IsEstimator(Player p) => p.PlayerId != _redactorPlayerId;
+
+    /// <summary>Estimadores conectados esperados esta ronda (todos menos el Redactor).</summary>
+    private int CountExpectedGuesses() =>
+        _players.Values.Count(p => p.IsConnected && IsEstimator(p));
+
+    /// <summary>Estimaciones ya recibidas (incluye desconectados que enviaron antes de caerse).</summary>
+    private int CountSubmittedGuesses() =>
+        _players.Values.Count(p => IsEstimator(p) && p.Guess.HasValue);
+
+    /// <summary>
+    /// True cuando todos los estimadores conectados han enviado. Debe llamarse bajo _lock.
+    /// Si no queda ningún estimador conectado devuelve false: la ronda se cierra
+    /// manualmente con RequestResults, no de forma automática.
+    /// </summary>
+    private bool AllGuessesSubmitted()
+    {
+        var expected = _players.Values.Where(p => p.IsConnected && IsEstimator(p)).ToList();
+        return expected.Count > 0 && expected.All(p => p.Guess.HasValue);
     }
 
     /// <summary>
@@ -254,7 +278,7 @@ public sealed class Room
             if (_phase != GamePhase.CollectingGuesses) return null;
 
             var estimators = _players.Values
-                .Where(p => p.Role == PlayerRole.Estimator && p.Guess.HasValue)
+                .Where(p => IsEstimator(p) && p.Guess.HasValue)
                 .ToList();
 
             if (estimators.Count == 0) return null;
@@ -290,13 +314,19 @@ public sealed class Room
                 });
             }
 
-            // Ganador = rango 1 (puede haber empate → varios ganadores)
+            // Mecánica de tragos:
+            //   · Ganador (rango 1, el que más se acercó) → reparte 1 trago a quien quiera.
+            //   · Perdedor (rango más alto, el que más se alejó) → bebe.
+            //   · Si solo hay un estimador (partida de 2) o todos empatan, hay ganador
+            //     pero NO perdedor: nadie puede ser a la vez el más cercano y el más lejano.
             var winners = results.Where(r => r.Rank == 1).ToList();
-            var losers = results.Where(r => r.Rank == results.Max(x => x.Rank)).ToList();
+            int maxRank = results.Max(x => x.Rank);
+            var losers = maxRank > 1
+                ? results.Where(r => r.Rank == maxRank).ToList()
+                : new List<PlayerRoundResult>();
 
-            // Tragos: ganador reparte 3 tragos entre los demás; perdedor recibe chupito (2)
-            const int winnerDrinks = 3;
-            const int loserPenalty = 2;
+            const int winnerDrinks = 1;
+            const int loserPenalty = 1;
 
             // Aplicar tragos a los jugadores.
             // Bucle por índice: reasignamos results[i] dentro del bucle y un foreach
@@ -305,8 +335,7 @@ public sealed class Room
             {
                 var r = results[i];
                 var player = _players[r.PlayerId];
-                bool isWinner = winners.Any(w => w.PlayerId == r.PlayerId);
-                bool isLoser = losers.Any(l => l.PlayerId == r.PlayerId) && !isWinner;
+                bool isLoser = losers.Any(l => l.PlayerId == r.PlayerId);
 
                 int drinks = 0;
                 string penalty = string.Empty;
@@ -315,16 +344,8 @@ public sealed class Room
                 {
                     drinks = loserPenalty;
                     penalty = IsAlcoholFreeRoom
-                        ? "🥤 Chupito de agua con sal. Que te aproveche, campeón."
-                        : "🥃 Chupito al pozo. Sin excusas.";
-                }
-                else if (!isWinner)
-                {
-                    // Los del medio reciben 1 trago del ganador
-                    drinks = 1;
-                    penalty = IsAlcoholFreeRoom
-                        ? "🧃 Un sorbo de lo que tengas. Eso es todo."
-                        : "🍺 Un trago. Cortesía del ganador.";
+                        ? "🧃 El más lejos paga: un buen trago de lo que tengas."
+                        : "🍺 El más lejos paga: te toca beber.";
                 }
 
                 player.DrinksOwed += drinks;
@@ -382,10 +403,16 @@ public sealed class Room
 
             _roundNumber++;
             _redactorIndex = (_redactorIndex + 1) % Math.Max(1, _players.Values.Count(p => p.IsConnected));
-            AssignRedactor();
 
+            // IMPORTANTE: limpiar la ronda ANTES de asignar el Redactor.
+            // ResetForNewRound() pone Role = Estimator a todos; si se ejecutara
+            // después de AssignRedactor() el Redactor quedaría como Estimator,
+            // GuessesExpected contaría a todos los jugadores y la ronda nunca
+            // cerraría (bug de «espera N respuestas en vez de N-1»).
             foreach (var p in _players.Values)
                 p.ResetForNewRound();
+
+            AssignRedactor();
 
             _currentQuestion = null;
             _pendingAnswer = null;
@@ -433,13 +460,9 @@ public sealed class Room
                 .Select(p => p.ToPublicDto(_phase, requestingPlayerId))
                 .ToList();
 
-            int guessesSubmitted = _phase == GamePhase.CollectingGuesses
-                ? _players.Values.Count(p => p.Role == PlayerRole.Estimator && p.Guess.HasValue)
-                : 0;
-
-            int guessesExpected = _phase == GamePhase.CollectingGuesses
-                ? _players.Values.Count(p => p.IsConnected && p.Role == PlayerRole.Estimator)
-                : 0;
+            // Contador visible: «recibidas / (jugadores conectados - 1)».
+            int guessesSubmitted = _phase == GamePhase.CollectingGuesses ? CountSubmittedGuesses() : 0;
+            int guessesExpected = _phase == GamePhase.CollectingGuesses ? CountExpectedGuesses() : 0;
 
             return new GameStateDto
             {

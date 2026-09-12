@@ -127,6 +127,18 @@ describe('GameComponent', () => {
     expect(component.guessProgress()).toBe(50);
   });
 
+  it('guessesExpected should be players - 1 (redactor never counts)', () => {
+    // Valor del servidor
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', guessesExpected: 1 });
+    fixture.detectChanges();
+    expect(component.guessesExpected()).toBe(1);
+
+    // Fallback local si el servidor no lo envía: conectados menos el Redactor
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', guessesExpected: 0 });
+    fixture.detectChanges();
+    expect(component.guessesExpected()).toBe(mockState.players.length - 1);
+  });
+
   it('should compute guessProgress 0 when no estimators', () => {
     gameState$.next({ ...mockState, phase: 'CollectingGuesses', guessesSubmitted: 0, guessesExpected: 0 });
     fixture.detectChanges();

@@ -117,11 +117,81 @@ describe('ResultsComponent', () => {
     expect(component.isLastRound()).toBeTrue();
   });
 
-  it('rankEmoji should return correct emojis', () => {
-    expect(component.rankEmoji(1)).toBe('🥇');
-    expect(component.rankEmoji(2)).toBe('🥈');
-    expect(component.rankEmoji(3)).toBe('🥉');
-    expect(component.rankEmoji(4)).toBe('#4');
+  it('should mark rank 1 as winner and worst rank as loser', () => {
+    const rows = component.rows();
+    expect(rows[0].outcome).toBe('winner');
+    expect(rows[1].outcome).toBe('loser');
+    expect(component.winners().map(w => w.playerName)).toEqual(['Bob']);
+    expect(component.losers().map(l => l.playerName)).toEqual(['Carlos']);
+  });
+
+  it('should mark middle players as neutral with 3+ estimators', () => {
+    gameState$.next({
+      ...mockState,
+      lastResult: {
+        ...mockResult,
+        ranking: [
+          { ...mockResult.ranking[0], rank: 1 },
+          { playerId: 'p4', playerName: 'Dani', guess: 13000, correctAnswer: 12742, relativeErrorPercent: 2, rank: 2, drinksThisRound: 0, penaltyDescription: '' },
+          { ...mockResult.ranking[1], rank: 3 },
+        ],
+      },
+    });
+    fixture.detectChanges();
+
+    expect(component.rows().map(r => r.outcome)).toEqual(['winner', 'neutral', 'loser']);
+  });
+
+  it('single estimator (2-player game) is winner by default and there is no loser', () => {
+    gameState$.next({
+      ...mockState,
+      players: mockState.players.slice(0, 2),
+      lastResult: { ...mockResult, ranking: [mockResult.ranking[0]], loserName: '' },
+    });
+    fixture.detectChanges();
+
+    expect(component.isSoloEstimator()).toBeTrue();
+    expect(component.rows().length).toBe(1);
+    expect(component.rows()[0].outcome).toBe('winner');
+    expect(component.losers()).toEqual([]);
+  });
+
+  it('full tie has winners but no loser', () => {
+    gameState$.next({
+      ...mockState,
+      lastResult: {
+        ...mockResult,
+        ranking: mockResult.ranking.map(r => ({ ...r, rank: 1, relativeErrorPercent: 10 })),
+      },
+    });
+    fixture.detectChanges();
+
+    expect(component.winners().length).toBe(2);
+    expect(component.losers()).toEqual([]);
+    expect(component.rows().every(r => r.outcome === 'winner')).toBeTrue();
+  });
+
+  it('badges should carry the drinking mechanic text', () => {
+    gameState$.next({ ...mockState, lastResult: { ...mockResult, drinksToDistribute: 1 } });
+    fixture.detectChanges();
+    expect(component.winnerBadge()).toBe('🎯 ¡Reparte 1 trago!');
+    expect(component.loserBadge()).toBe('🍺 ¡Te toca beber!');
+
+    gameState$.next({ ...mockState, isAlcoholFreeRoom: true });
+    fixture.detectChanges();
+    expect(component.loserBadge()).toBe('🧃 ¡Te toca beber!');
+  });
+
+  it('should render winner and loser badges in the template', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.badge-gold')?.textContent).toContain('¡Reparte');
+    expect(el.querySelector('.badge-red')?.textContent).toContain('¡Te toca beber!');
+    expect(el.textContent).not.toContain('La IA opina');
+  });
+
+  it('should resolve the redactor name', () => {
+    expect(component.redactorName()).toBe('Ana');
+    expect(component.isRedactor('p1')).toBeTrue();
   });
 
   it('formatError should handle exact answer', () => {

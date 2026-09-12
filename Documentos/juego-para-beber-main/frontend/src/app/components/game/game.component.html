@@ -32,7 +32,7 @@
             <div class="flex items-center gap-3 mb-4">
               <span class="text-3xl">✍️</span>
               <div>
-                <h2 class="text-xl font-bold text-lime-400">Eres el Redactor</h2>
+                <h2 class="text-xl font-bold text-white">Eres el Redactor</h2>
                 <p class="text-gray-400 text-sm">Escribe una pregunta de respuesta numérica</p>
               </div>
             </div>
@@ -62,8 +62,7 @@
           </div>
 
           @if (errorMsg()) {
-            <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                        text-red-300 text-sm my-4 animate-shake" role="alert">
+            <div class="alert-error my-4 animate-shake" role="alert">
               ⚠️ {{ errorMsg() }}
             </div>
           }
@@ -103,7 +102,7 @@
           <!-- Quién es el Redactor -->
           <div class="mt-6 card text-center">
             <p class="text-gray-500 text-sm">Redactor esta ronda</p>
-            <p class="text-lime-400 font-bold text-xl mt-1">{{ redactorName() }}</p>
+            <p class="text-brand-300 font-bold text-xl mt-1">{{ redactorName() }}</p>
           </div>
         </div>
       }
@@ -122,11 +121,11 @@
         </p>
       </div>
 
-      <!-- Progreso de estimaciones (sin revelar quién) -->
+      <!-- Progreso de estimaciones (sin revelar quién). Esperadas = jugadores conectados - 1 (el Redactor no adivina) -->
       <div class="mb-6">
         <div class="flex justify-between text-sm text-gray-500 mb-2">
-          <span>Estimaciones recibidas</span>
-          <span class="text-lime-400 font-bold">{{ s.guessesSubmitted }}/{{ s.guessesExpected }}</span>
+          <span>Estimaciones recibidas <span class="text-gray-600">· el Redactor no adivina</span></span>
+          <span class="text-white font-bold tabular-nums">{{ s.guessesSubmitted }}/{{ guessesExpected() }}</span>
         </div>
         <div class="progress-bar">
           <div class="progress-fill" [style.width.%]="guessProgress()"></div>
@@ -142,8 +141,7 @@
           </p>
 
           @if (errorMsg()) {
-            <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                        text-red-300 text-sm mb-4 w-full animate-shake" role="alert">
+            <div class="alert-error mb-4 w-full animate-shake" role="alert">
               ⚠️ {{ errorMsg() }}
             </div>
           }
@@ -187,8 +185,7 @@
             </div>
 
             @if (errorMsg()) {
-              <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                          text-red-300 text-sm my-4 animate-shake" role="alert">
+              <div class="alert-error my-4 animate-shake" role="alert">
                 ⚠️ {{ errorMsg() }}
               </div>
             }
@@ -213,7 +210,7 @@
             <!-- Estimación enviada: esperar -->
             <div class="flex-1 flex flex-col items-center justify-center">
               <div class="text-6xl mb-4">✅</div>
-              <h2 class="text-2xl font-bold text-lime-400 mb-2">¡Enviado!</h2>
+              <h2 class="text-2xl font-bold text-white mb-2">¡Enviado!</h2>
               <p class="text-gray-400 text-center">
                 Tu estimación está guardada. Esperando al resto...
               </p>

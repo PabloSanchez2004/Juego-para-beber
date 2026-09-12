@@ -11,7 +11,7 @@ input[type="range"] {
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: #374151; // gray-700
+  background: #25304f; // ink-700
   outline: none;
   cursor: pointer;
 
@@ -21,13 +21,15 @@ input[type="range"] {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #a3e635; // lime-400
+    background: #ffffff;
+    border: 2px solid #5b86ee; // brand-500
     cursor: pointer;
-    box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.2);
-    transition: box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 0.15s, transform 0.15s;
 
     &:hover {
-      box-shadow: 0 0 0 6px rgba(163, 230, 53, 0.3);
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(91, 134, 238, 0.15);
     }
   }
 
@@ -35,8 +37,8 @@ input[type="range"] {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #a3e635;
+    background: #ffffff;
+    border: 2px solid #5b86ee;
     cursor: pointer;
-    border: none;
   }
 }

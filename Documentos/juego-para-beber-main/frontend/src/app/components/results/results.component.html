@@ -1,184 +1,233 @@
 <!-- Pantalla de resultados -->
-<div class="min-h-screen flex flex-col px-4 py-6 animate-fade-in">
+<div class="min-h-screen flex flex-col px-4 pt-6 pb-8 max-w-md mx-auto w-full animate-fade-in">
 
   @if (state(); as s) {
     @if (result(); as r) {
 
-      <!-- Header -->
-      <div class="text-center mb-6">
-        <p class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
-          Ronda {{ r.roundNumber }} / {{ s.maxRounds }}
-        </p>
-        <h2 class="text-3xl font-black text-white mt-1">Resultados</h2>
-      </div>
+      <!-- ── Header ─────────────────────────────────────────────────── -->
+      <header class="flex items-end justify-between mb-5">
+        <div>
+          <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
+          <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
+        </div>
+        <span class="badge-neutral">
+          {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ s.roomCode }}
+        </span>
+      </header>
 
-      <!-- Pregunta y respuesta correcta -->
-      <div class="card mb-5 animate-slide-up">
-        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">
-          Pregunta
-        </p>
-        <p class="text-white font-semibold text-lg leading-snug mb-4">
+      <!-- ── Pregunta y respuesta correcta ──────────────────────────── -->
+      <section class="card-elevated mb-6 animate-slide-up">
+        <p class="eyebrow mb-2">La pregunta</p>
+        <p class="text-slate-100 font-semibold text-lg leading-snug">
           {{ r.question }}
         </p>
 
-        <div class="border-t border-gray-800 pt-4">
-          <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-1">
-            Respuesta correcta
-          </p>
-          <p class="text-lime-400 font-black text-4xl">
-            {{ r.correctAnswer | number:'1.0-4' }}
-          </p>
-          @if (r.answerSource) {
-            <p class="text-gray-600 text-xs mt-1 truncate">
-              📎 {{ r.answerSource }}
+        <div class="mt-5 pt-5 border-t border-white/5 flex items-end justify-between gap-4">
+          <div class="min-w-0">
+            <p class="eyebrow mb-1">Respuesta correcta</p>
+            <p class="text-white font-extrabold text-4xl tracking-tight tabular-nums leading-none">
+              {{ r.correctAnswer | number:'1.0-4' }}
             </p>
+            @if (r.answerSource) {
+              <p class="text-slate-500 text-xs mt-2 truncate">Fuente: {{ r.answerSource }}</p>
+            }
+          </div>
+          @if (redactorName()) {
+            <div class="text-right shrink-0">
+              <p class="eyebrow mb-1">Redactor</p>
+              <p class="text-slate-300 text-sm font-medium">✍️ {{ redactorName() }}</p>
+            </div>
           }
         </div>
-      </div>
+      </section>
 
-      <!-- Ranking -->
-      <div class="mb-5">
-        <h3 class="text-gray-400 text-sm font-semibold uppercase tracking-wide mb-3">
-          Ranking
-        </h3>
+      <!-- ── Ranking de la ronda ────────────────────────────────────── -->
+      <section class="mb-6">
+        <div class="flex items-baseline justify-between mb-3 px-1">
+          <h3 class="eyebrow">Ranking de la ronda</h3>
+          <span class="text-slate-500 text-xs">
+            {{ ranking().length }} {{ ranking().length === 1 ? 'estimador' : 'estimadores' }}
+          </span>
+        </div>
 
         <div class="space-y-3">
-          @for (entry of ranking(); track trackByPlayerId($index, entry)) {
-            <div
-              class="card animate-slide-up"
-              [class.border-lime-400]="entry.rank === 1"
-              [class.border-gray-700]="entry.rank !== 1"
-              [class.ring-2]="isMe(entry.playerId)"
-              [class.ring-lime-400]="isMe(entry.playerId)"
-              [class.ring-offset-2]="isMe(entry.playerId)"
-              [class.ring-offset-gray-950]="isMe(entry.playerId)">
+          @for (row of rows(); track row.entry.playerId) {
+            <article
+              class="relative rounded-3xl border p-4 shadow-card transition-colors animate-slide-up"
+              [class.delay-1]="$index === 1"
+              [class.delay-2]="$index === 2"
+              [class.delay-3]="$index === 3"
+              [class.delay-4]="$index >= 4"
+              [ngClass]="{
+                'bg-gradient-to-br from-gold-400/15 via-ink-900 to-ink-900 border-gold-400/40': row.outcome === 'winner',
+                'bg-gradient-to-br from-red-500/15 via-ink-900 to-ink-900 border-red-500/40': row.outcome === 'loser',
+                'bg-ink-900 border-white/5': row.outcome === 'neutral'
+              }"
+              [attr.aria-label]="row.entry.playerName + ', posición ' + row.entry.rank">
+
+              <!-- Indicador «tú»: línea fina lateral, sin anillos brillantes -->
+              @if (isMe(row.entry.playerId)) {
+                <span class="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-brand-400" aria-hidden="true"></span>
+              }
 
               <div class="flex items-center gap-4">
                 <!-- Posición -->
-                <div class="text-3xl flex-shrink-0 w-10 text-center">
-                  {{ rankEmoji(entry.rank) }}
+                <div
+                  class="w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 tabular-nums"
+                  [ngClass]="{
+                    'bg-gold-400 text-ink-950 shadow-elevated': row.outcome === 'winner',
+                    'bg-red-500 text-white shadow-elevated': row.outcome === 'loser',
+                    'bg-white/5 text-slate-300 border border-white/10': row.outcome === 'neutral'
+                  }">
+                  {{ row.entry.rank }}
                 </div>
 
                 <!-- Nombre y estimación -->
                 <div class="flex-1 min-w-0">
-                  <p class="font-bold text-white text-lg truncate">
-                    {{ entry.playerName }}
-                    @if (isMe(entry.playerId)) {
-                      <span class="text-lime-400 text-xs ml-1">(tú)</span>
+                  <p class="font-bold text-white text-base truncate flex items-center gap-2">
+                    <span class="truncate">{{ row.entry.playerName }}</span>
+                    @if (isMe(row.entry.playerId)) {
+                      <span class="text-[10px] font-semibold uppercase tracking-wider text-brand-300
+                                   bg-brand-500/15 rounded-md px-1.5 py-0.5 shrink-0">tú</span>
                     }
                   </p>
-                  <p class="text-gray-400 text-sm">
-                    Estimó: <span class="text-white font-semibold">{{ entry.guess | number:'1.0-4' }}</span>
+                  <p class="text-slate-400 text-sm mt-0.5">
+                    Estimó
+                    <span class="text-slate-100 font-semibold tabular-nums">{{ row.entry.guess | number:'1.0-4' }}</span>
                   </p>
                 </div>
 
-                <!-- Error -->
-                <div class="text-right flex-shrink-0">
-                  <p class="font-bold text-sm">{{ formatError(entry.relativeErrorPercent) }}</p>
-                  @if (entry.drinksThisRound > 0) {
-                    <p class="text-red-400 text-xs mt-1">
-                      {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} ×{{ entry.drinksThisRound }}
-                    </p>
-                  }
+                <!-- Desviación -->
+                <div class="text-right shrink-0">
+                  <p class="eyebrow">Desvío</p>
+                  <p class="font-bold text-sm tabular-nums mt-0.5" [ngClass]="errorTone(row.entry.relativeErrorPercent)">
+                    {{ formatError(row.entry.relativeErrorPercent) }}
+                  </p>
                 </div>
               </div>
 
-              <!-- Castigo -->
-              @if (entry.penaltyDescription) {
-                <div class="mt-3 pt-3 border-t border-gray-800">
-                  <p class="text-gray-400 text-sm">{{ entry.penaltyDescription }}</p>
+              <!-- Badge de consecuencia -->
+              @if (row.outcome === 'winner') {
+                <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
+                  <span class="badge-gold text-sm px-3.5 py-1.5 animate-pop-in">{{ winnerBadge() }}</span>
+                  <span class="text-gold-300/80 text-xs font-medium text-right">
+                    {{ isSoloEstimator() ? 'Único estimador · gana la ronda' : 'El que más se acercó' }}
+                  </span>
+                </div>
+              } @else if (row.outcome === 'loser') {
+                <div class="mt-4 pt-3 border-t border-red-500/20 flex items-center justify-between gap-3">
+                  <span class="badge-red text-sm px-3.5 py-1.5 animate-pop-in">{{ loserBadge() }}</span>
+                  <span class="text-red-300/80 text-xs font-medium text-right">El que más se alejó</span>
                 </div>
               }
-            </div>
+            </article>
           }
         </div>
-      </div>
 
-      <!-- Comentario sarcástico -->
-      @if (r.sarcasticComment) {
-        <div class="card mb-5 bg-purple-900/30 border-purple-700/50 animate-slide-up">
-          <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">
-            🤖 La IA opina sobre {{ r.loserName }}
+        <!-- Partida de 2: explicar por qué no hay perdedor -->
+        @if (isSoloEstimator()) {
+          <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
+            Con dos jugadores solo adivina uno: <span class="text-slate-300 font-medium">{{ soloWinnerName() }}</span>
+            se lleva la ronda y reparte {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
+            El Redactor no bebe por esta ronda.
           </p>
-          <p class="text-white text-lg font-semibold italic leading-snug">
-            "{{ r.sarcasticComment }}"
+        } @else if (losers().length === 0 && ranking().length > 1) {
+          <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
+            Empate total: todos se acercaron lo mismo. Nadie bebe esta ronda.
           </p>
+        }
+      </section>
+
+      <!-- ── Marcador acumulado ─────────────────────────────────────── -->
+      <section class="card mb-6 animate-slide-up delay-2">
+        <div class="flex items-baseline justify-between mb-4">
+          <h3 class="eyebrow">Marcador</h3>
+          <span class="text-slate-500 text-xs">Acumulado</span>
         </div>
-      }
 
-      <!-- Resumen de tragos -->
-      <div class="card mb-6 animate-slide-up">
-        <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">
-          Marcador acumulado
-        </p>
-        <div class="space-y-2">
-          @for (player of s.players; track player.playerId) {
-            <div class="flex items-center justify-between">
-              <span class="text-white font-semibold">
-                {{ player.name }}
-                @if (isMe(player.playerId)) {
-                  <span class="text-lime-400 text-xs ml-1">(tú)</span>
-                }
+        <ul class="divide-y divide-white/5">
+          @for (player of scoreboard(); track player.playerId) {
+            <li class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+              <span
+                class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                [ngClass]="isMe(player.playerId)
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-white/5 text-slate-300 border border-white/10'">
+                {{ initialOf(player.name) }}
               </span>
-              <div class="flex items-center gap-4">
-                <span class="text-gray-400 text-sm">
-                  {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ player.drinksOwed }}
-                </span>
-                <span class="text-lime-400 font-bold">{{ player.score }} pts</span>
-              </div>
-            </div>
-          }
-        </div>
-      </div>
 
-      <!-- Error -->
+              <div class="flex-1 min-w-0">
+                <p class="text-slate-100 font-semibold text-sm truncate">
+                  {{ player.name }}
+                  @if (isMe(player.playerId)) {
+                    <span class="text-slate-500 font-normal">· tú</span>
+                  }
+                </p>
+                <p class="text-slate-500 text-xs">
+                  {{ isRedactor(player.playerId) ? '✍️ Redactor esta ronda' : (player.isConnected ? 'Estimador' : 'Desconectado') }}
+                </p>
+              </div>
+
+              <div class="text-right shrink-0">
+                <p class="text-white font-bold text-sm tabular-nums">{{ player.score }} <span class="text-slate-500 font-medium">pts</span></p>
+                <p class="text-slate-400 text-xs tabular-nums">
+                  {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ player.drinksOwed }}
+                </p>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <!-- ── Error ──────────────────────────────────────────────────── -->
       @if (errorMsg()) {
-        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                    text-red-300 text-sm mb-4 animate-shake" role="alert">
+        <div class="alert-error mb-4 animate-shake" role="alert">
           ⚠️ {{ errorMsg() }}
         </div>
       }
 
-      <!-- Botón siguiente ronda / fin -->
-      @if (isLastRound()) {
-        <div class="text-center">
-          <div class="text-5xl mb-4">🏆</div>
-          <h3 class="text-2xl font-black text-lime-400 mb-2">¡Juego terminado!</h3>
-          <p class="text-gray-400 mb-6">
-            Ganador: <span class="text-white font-bold">{{ r.winnerName }}</span>
-          </p>
+      <!-- ── CTA: siguiente ronda / fin ─────────────────────────────── -->
+      <div class="mt-auto">
+        @if (isLastRound()) {
+          <div class="card-elevated text-center mb-4">
+            <div class="text-4xl mb-2">🏆</div>
+            <h3 class="text-xl font-extrabold text-white">¡Juego terminado!</h3>
+            <p class="text-slate-400 text-sm mt-1">
+              Última ronda para <span class="text-gold-300 font-semibold">{{ r.winnerName }}</span>
+            </p>
+          </div>
           <button
             class="btn-primary"
             [disabled]="loading()"
             (click)="nextRound()"
             aria-label="Ver pantalla final">
-            🎉 Ver clasificación final
+            Ver clasificación final
           </button>
-        </div>
-      } @else {
-        <button
-          class="btn-primary mt-auto"
-          [disabled]="loading()"
-          (click)="nextRound()"
-          aria-label="Siguiente ronda">
-          @if (loading()) {
-            <span class="flex items-center justify-center gap-2">
-              <span class="loading-dot" style="animation-delay:0ms"></span>
-              <span class="loading-dot" style="animation-delay:150ms"></span>
-              <span class="loading-dot" style="animation-delay:300ms"></span>
-            </span>
-          } @else {
-            ➡️ Siguiente ronda
-          }
-        </button>
-      }
+        } @else {
+          <button
+            class="btn-primary"
+            [disabled]="loading()"
+            (click)="nextRound()"
+            aria-label="Siguiente ronda">
+            @if (loading()) {
+              <span class="flex items-center justify-center gap-2">
+                <span class="loading-dot" style="animation-delay:0ms"></span>
+                <span class="loading-dot" style="animation-delay:150ms"></span>
+                <span class="loading-dot" style="animation-delay:300ms"></span>
+              </span>
+            } @else {
+              Siguiente ronda →
+            }
+          </button>
+        }
+      </div>
 
     } @else {
       <!-- Sin resultado aún -->
       <div class="flex-1 flex items-center justify-center">
         <div class="text-center">
           <div class="text-5xl mb-4 animate-bounce-slow">⏳</div>
-          <p class="text-gray-400">Calculando resultados...</p>
+          <p class="text-slate-400">Calculando resultados...</p>
         </div>
       </div>
     }
@@ -187,7 +236,7 @@
     <div class="flex-1 flex items-center justify-center">
       <div class="text-center">
         <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
-        <p class="text-gray-400">Cargando...</p>
+        <p class="text-slate-400">Cargando...</p>
       </div>
     </div>
   }

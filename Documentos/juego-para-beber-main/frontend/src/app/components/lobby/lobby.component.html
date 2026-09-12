@@ -22,8 +22,8 @@
         Código de sala
       </p>
       <button
-        class="room-code block mx-auto cursor-pointer hover:border-lime-400/60 transition-all
-               active:scale-95"
+        class="room-code block mx-auto cursor-pointer hover:border-brand-400/60 transition-all
+               active:scale-[0.98]"
         (click)="copyCode()"
         [attr.aria-label]="'Código de sala: ' + s.roomCode + '. Toca para copiar'"
         title="Toca para copiar">
@@ -53,16 +53,15 @@
         @for (player of players(); track trackByPlayerId($index, player)) {
           <div
             class="player-chip animate-slide-up"
-            [class.border-lime-400]="isMe(player)"
+            [ngClass]="isMe(player) ? 'border-brand-400/50' : ''"
             [class.opacity-50]="!player.isConnected">
 
             <!-- Avatar -->
             <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
                         flex-shrink-0"
-                 [class.bg-lime-400]="isMe(player)"
-                 [class.text-gray-950]="isMe(player)"
-                 [class.bg-gray-700]="!isMe(player)"
-                 [class.text-white]="!isMe(player)">
+                 [ngClass]="isMe(player)
+                   ? 'bg-brand-500 text-white'
+                   : 'bg-white/5 text-slate-200 border border-white/10'">
               {{ player.name.charAt(0).toUpperCase() }}
             </div>
 
@@ -71,7 +70,7 @@
               <p class="font-semibold text-white truncate">
                 {{ player.name }}
                 @if (isMe(player)) {
-                  <span class="text-lime-400 text-xs ml-1">(tú)</span>
+                  <span class="text-brand-300 text-xs ml-1">(tú)</span>
                 }
               </p>
               <p class="text-gray-500 text-xs">
@@ -94,8 +93,7 @@
 
     <!-- Error -->
     @if (errorMsg()) {
-      <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
-                  text-red-300 text-sm mb-4 animate-shake" role="alert">
+      <div class="alert-error mb-4 animate-shake" role="alert">
         ⚠️ {{ errorMsg() }}
       </div>
     }

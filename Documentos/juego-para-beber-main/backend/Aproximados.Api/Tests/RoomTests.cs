@@ -357,6 +357,116 @@ public class RoomPrivacyTests
     }
 }
 
+/// <summary>
+/// Regresión del bug «espera N respuestas en vez de N-1»: desde la ronda 2,
+/// TryAdvanceRound reseteaba los roles DESPUÉS de asignar el Redactor, así que
+/// el Redactor contaba como estimador y la ronda nunca cerraba.
+/// </summary>
+public class RoomTwoPlayerFlowTests
+{
+    private static Room CreateStartedTwoPlayerRoom()
+    {
+        var room = new Room { Code = "DUO1" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        Assert.True(room.TryStartGame(3, false));
+        return room;
+    }
+
+    private static Player EstimatorOf(Room room) =>
+        room.Players.Single(p => p.PlayerId != room.RedactorPlayerId);
+
+    [Fact]
+    public void Round1_TwoPlayers_ExpectsExactlyOneGuess()
+    {
+        var room = CreateStartedTwoPlayerRoom();
+        room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuántos km tiene la Tierra?");
+
+        var dto = room.ToDto("p1");
+        Assert.Equal(1, dto.GuessesExpected);
+        Assert.Equal(0, dto.GuessesSubmitted);
+
+        var (ok, allSubmitted) = room.TrySubmitGuess(EstimatorOf(room).PlayerId, 12000);
+        Assert.True(ok);
+        Assert.True(allSubmitted); // 1 de 1 → cierra
+    }
+
+    [Fact]
+    public void Round2_TwoPlayers_RedactorRotatesAndStillExpectsOneGuess()
+    {
+        var room = CreateStartedTwoPlayerRoom();
+        var firstRedactor = room.RedactorPlayerId;
+
+        room.TrySubmitQuestion(firstRedactor!, "¿Cuántos km tiene la Tierra?");
+        room.TrySubmitGuess(EstimatorOf(room).PlayerId, 12000);
+        Assert.NotNull(room.FinalizeRound(12742, "src", string.Empty));
+        Assert.True(room.TryAdvanceRound());
+
+        // El Redactor rota y su rol debe reflejarlo
+        Assert.NotEqual(firstRedactor, room.RedactorPlayerId);
+        var redactor = room.Players.Single(p => p.PlayerId == room.RedactorPlayerId);
+        Assert.Equal(PlayerRole.Redactor, redactor.Role);
+        Assert.Equal(PlayerRole.Estimator, EstimatorOf(room).Role);
+
+        room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuántos huesos tiene el cuerpo humano?");
+
+        // Condición de cierre: recibidas == jugadores - 1
+        Assert.Equal(room.Players.Count - 1, room.ToDto("p1").GuessesExpected);
+
+        var (redactorOk, _) = room.TrySubmitGuess(room.RedactorPlayerId!, 200);
+        Assert.False(redactorOk); // el Redactor sigue sin poder adivinar
+
+        var (ok, allSubmitted) = room.TrySubmitGuess(EstimatorOf(room).PlayerId, 206);
+        Assert.True(ok);
+        Assert.True(allSubmitted);
+    }
+
+    [Fact]
+    public void FinalizeRound_SingleEstimator_IsWinnerWithoutLoser()
+    {
+        var room = CreateStartedTwoPlayerRoom();
+        room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuántos km tiene la Tierra?");
+        var estimator = EstimatorOf(room);
+        room.TrySubmitGuess(estimator.PlayerId, 10000);
+
+        var result = room.FinalizeRound(12742, "src", string.Empty);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Ranking);
+        Assert.Equal(estimator.Name, result.WinnerName);
+        Assert.Equal(string.Empty, result.LoserName);
+        Assert.Equal(0, result.Ranking[0].DrinksThisRound);
+        Assert.Equal(1, result.DrinksToDistribute);
+    }
+
+    [Fact]
+    public void FinalizeRound_ThreeEstimators_WinnerDistributesAndLoserDrinks()
+    {
+        var room = new Room { Code = "TRIO" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryAddPlayer(new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" });
+        room.TryAddPlayer(new Player { Name = "Dani", ConnectionId = "c4", PlayerId = "p4" });
+        room.TryStartGame(3, false);
+        room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?");
+
+        var guesses = new Queue<double>([100, 130, 400]);
+        foreach (var p in room.Players.Where(p => p.PlayerId != room.RedactorPlayerId).OrderBy(p => p.Name))
+            room.TrySubmitGuess(p.PlayerId, guesses.Dequeue());
+
+        var result = room.FinalizeRound(100, "src", string.Empty)!;
+        var ranking = result.Ranking.OrderBy(r => r.Rank).ToList();
+
+        Assert.Equal(1, ranking[0].Rank);
+        Assert.Equal(0, ranking[0].DrinksThisRound);              // ganador reparte, no bebe
+        Assert.Equal(0, ranking[1].DrinksThisRound);              // el del medio no bebe
+        Assert.Equal(1, ranking[2].DrinksThisRound);              // perdedor bebe
+        Assert.False(string.IsNullOrEmpty(ranking[2].PenaltyDescription));
+        Assert.Equal(ranking[0].PlayerName, result.WinnerName);
+        Assert.Equal(ranking[2].PlayerName, result.LoserName);
+    }
+}
+
 public class RoomReconnectionTests
 {
     [Fact]

@@ -12,10 +12,10 @@ import { GamePhase } from './models/game.models';
   standalone: true,
   imports: [RouterOutlet, CommonModule],
   template: `
-    <div class="min-h-screen bg-gray-950 safe-top safe-bottom">
+    <div class="min-h-screen safe-top safe-bottom">
       <!-- Banner de reconexión -->
       @if (isReconnecting) {
-        <div class="fixed top-0 left-0 right-0 z-50 bg-yellow-500/90 text-gray-950
+        <div class="fixed top-0 left-0 right-0 z-50 bg-amber-400/95 text-ink-950
                     text-center py-2 px-4 text-sm font-semibold animate-pulse">
           🔄 Reconectando... No cierres la app
         </div>

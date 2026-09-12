@@ -9,7 +9,19 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { RoomService } from '../../services/room.service';
-import { GameStateDto, PlayerRoundResult } from '../../models/game.models';
+import {
+  GameStateDto,
+  PlayerPublicDto,
+  PlayerRoundResult,
+} from '../../models/game.models';
+
+/** Papel de cada jugador en el ranking de la ronda, según la distancia a la respuesta. */
+export type RankOutcome = 'winner' | 'loser' | 'neutral';
+
+export interface RankRow {
+  entry: PlayerRoundResult;
+  outcome: RankOutcome;
+}
 
 @Component({
   selector: 'app-results',
@@ -27,14 +39,61 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   result = computed(() => this.state()?.lastResult ?? null);
 
+  /** Ranking ordenado de mejor a peor (menor error primero). */
   ranking = computed(() =>
     [...(this.result()?.ranking ?? [])].sort((a, b) => a.rank - b.rank)
   );
+
+  /** Peor rango de la ronda (el que más se alejó). */
+  private worstRank = computed(() =>
+    this.ranking().reduce((max, r) => Math.max(max, r.rank), 0)
+  );
+
+  /**
+   * Solo hay un estimador (partida de 2 jugadores: Redactor + 1).
+   * Gana por defecto y no existe perdedor.
+   */
+  isSoloEstimator = computed(() => this.ranking().length === 1);
+
+  /** Nombre del Redactor de la ronda (no participa adivinando). */
+  redactorName = computed(() => {
+    const s = this.state();
+    if (!s) return '';
+    return s.players.find(p => p.playerId === s.redactorPlayerId)?.name ?? '';
+  });
+
+  /** Ganador(es): rango 1. */
+  winners = computed(() => this.ranking().filter(r => r.rank === 1));
+
+  /** Nombre del ganador cuando solo hay un estimador (texto explicativo). */
+  soloWinnerName = computed(() => this.winners()[0]?.playerName ?? '');
+
+  /** Perdedor(es): peor rango, siempre que no sea también el rango 1 (empate total o único estimador). */
+  losers = computed(() => {
+    const worst = this.worstRank();
+    if (worst <= 1) return [];
+    return this.ranking().filter(r => r.rank === worst);
+  });
+
+  /** Filas del ranking con su desenlace ya resuelto (evita recalcular en la plantilla). */
+  rows = computed<RankRow[]>(() =>
+    this.ranking().map(entry => ({ entry, outcome: this.outcomeOf(entry) }))
+  );
+
+  /** Marcador acumulado ordenado por puntos. */
+  scoreboard = computed<PlayerPublicDto[]>(() => {
+    const s = this.state();
+    if (!s) return [];
+    return [...s.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  });
 
   isLastRound = computed(() => {
     const s = this.state();
     return s ? s.roundNumber >= s.maxRounds : false;
   });
+
+  /** Tragos que reparte el ganador (viene del backend; 1 por defecto). */
+  drinksToDistribute = computed(() => this.result()?.drinksToDistribute || 1);
 
   private subs = new Subscription();
 
@@ -81,17 +140,33 @@ export class ResultsComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ── Helpers de presentación ────────────────────────────────────────────
+
   isMe(playerId: string): boolean {
     return playerId === this.myPlayerId();
   }
 
-  rankEmoji(rank: number): string {
-    switch (rank) {
-      case 1: return '🥇';
-      case 2: return '🥈';
-      case 3: return '🥉';
-      default: return `#${rank}`;
-    }
+  isRedactor(playerId: string): boolean {
+    return playerId === this.state()?.redactorPlayerId;
+  }
+
+  /** Clasifica una entrada del ranking para colorear la tarjeta y mostrar el badge. */
+  outcomeOf(entry: PlayerRoundResult): RankOutcome {
+    if (entry.rank === 1) return 'winner';
+    if (this.losers().some(l => l.playerId === entry.playerId)) return 'loser';
+    return 'neutral';
+  }
+
+  /** Texto del badge de ganador: «🎯 ¡Reparte 1 trago!» */
+  winnerBadge(): string {
+    const n = this.drinksToDistribute();
+    return `🎯 ¡Reparte ${n} ${n === 1 ? 'trago' : 'tragos'}!`;
+  }
+
+  /** Texto del badge de perdedor: «🍺 ¡Te toca beber!» */
+  loserBadge(): string {
+    const dry = this.state()?.isAlcoholFreeRoom;
+    return `${dry ? '🧃' : '🍺'} ¡Te toca beber!`;
   }
 
   formatError(pct: number): string {
@@ -100,6 +175,18 @@ export class ResultsComponent implements OnInit, OnDestroy {
     if (pct < 20) return `${pct.toFixed(1)}% 👍`;
     if (pct < 50) return `${pct.toFixed(1)}% 😬`;
     return `${pct.toFixed(1)}% 💀`;
+  }
+
+  /** Color del porcentaje de error según lo lejos que se quedó. */
+  errorTone(pct: number): string {
+    if (pct < 5) return 'text-emerald-300';
+    if (pct < 20) return 'text-slate-200';
+    if (pct < 50) return 'text-amber-300';
+    return 'text-red-300';
+  }
+
+  initialOf(name: string): string {
+    return (name?.trim().charAt(0) || '?').toUpperCase();
   }
 
   trackByPlayerId(_: number, r: PlayerRoundResult): string {

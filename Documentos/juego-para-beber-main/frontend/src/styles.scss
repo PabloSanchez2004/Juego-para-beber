@@ -3,16 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
-// Variables globales
+// ── Variables globales ────────────────────────────────────────────────────
+// Dark mode elegante: superficies azul-gris, acento azul suave, sin neón.
 :root {
-  --color-primary: #a3e635;      // lime-400
-  --color-primary-dark: #84cc16; // lime-500
-  --color-bg: #030712;           // gray-950
-  --color-surface: #111827;      // gray-900
-  --color-surface-2: #1f2937;    // gray-800
-  --color-muted: #6b5b95;        // purple muted
-  --color-text: #f9fafb;         // gray-50
-  --color-text-muted: #9ca3af;   // gray-400
+  --color-primary: #5b86ee;        // brand-500
+  --color-primary-hover: #7aa0f7;  // brand-400
+  --color-bg: #0b1020;             // ink-950
+  --color-surface: #121a2f;        // ink-900
+  --color-surface-2: #1a2340;      // ink-800
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-text: #f8fafc;           // slate-50
+  --color-text-muted: #94a3b8;     // slate-400
 }
 
 // Reset base
@@ -25,8 +26,17 @@ html, body {
   margin: 0;
   padding: 0;
   background-color: var(--color-bg);
+  // Luz ambiental muy sutil en la parte superior: da profundidad sin "glow"
+  background-image: radial-gradient(
+    900px 480px at 50% -120px,
+    rgba(91, 134, 238, 0.14),
+    transparent 65%
+  );
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: 'Inter', system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'tnum';
+  -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
@@ -36,98 +46,136 @@ html, body {
   width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-bg);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-muted);
+  background: var(--color-surface-2);
   border-radius: 2px;
 }
 
-// Componentes reutilizables
+// ── Componentes reutilizables ─────────────────────────────────────────────
 @layer components {
-  // Botón primario (lime)
+  // Botón primario (acento de marca, texto blanco)
   .btn-primary {
-    @apply w-full py-5 px-6 rounded-2xl font-bold text-xl text-gray-950
-           bg-lime-400 hover:bg-lime-300 active:scale-95
+    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-white
+           bg-brand-500 hover:bg-brand-400 active:scale-[0.98]
+           shadow-button
            transition-all duration-150 ease-out
-           focus:outline-none focus:ring-4 focus:ring-lime-400/50
-           disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100
            select-none;
   }
 
-  // Botón secundario (gris oscuro)
+  // Botón secundario (superficie elevada, borde sutil)
   .btn-secondary {
-    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-gray-200
-           bg-gray-800 hover:bg-gray-700 active:scale-95
-           border border-gray-700 hover:border-gray-600
+    @apply w-full py-4 px-6 rounded-2xl font-semibold text-base text-slate-200
+           bg-ink-800 hover:bg-ink-700 active:scale-[0.98]
+           border border-white/10 hover:border-white/15
            transition-all duration-150 ease-out
-           focus:outline-none focus:ring-4 focus:ring-gray-500/50
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-white/10
            disabled:opacity-40 disabled:cursor-not-allowed
            select-none;
   }
 
-  // Botón inactivo/morado
+  // Botón inactivo / estado de espera
   .btn-muted {
-    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-gray-400
-           bg-gray-900 border border-gray-700
-           cursor-not-allowed opacity-60 select-none;
+    @apply w-full py-4 px-6 rounded-2xl font-medium text-base text-slate-400
+           bg-ink-900 border border-white/5
+           cursor-not-allowed select-none;
   }
 
   // Input de texto grande
   .input-field {
     @apply w-full py-4 px-5 rounded-2xl text-xl font-semibold
-           bg-gray-900 border-2 border-gray-700
-           text-white placeholder-gray-500
-           focus:outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/30
+           bg-ink-900 border border-white/10
+           text-white placeholder-slate-500
+           focus:outline-none focus:border-brand-400/70 focus:ring-4 focus:ring-brand-400/15
            transition-all duration-150;
   }
 
   // Tarjeta de superficie
   .card {
-    @apply bg-gray-900 rounded-3xl p-6 border border-gray-800;
+    @apply bg-ink-900 rounded-3xl p-5 border border-white/5 shadow-card;
+  }
+
+  // Tarjeta elevada (destacados)
+  .card-elevated {
+    @apply bg-ink-800 rounded-3xl p-5 border border-white/10 shadow-elevated;
+  }
+
+  // Etiqueta pequeña sobre secciones
+  .eyebrow {
+    @apply text-slate-400 text-[11px] font-semibold uppercase tracking-[0.14em];
   }
 
   // Badge de código de sala
   .room-code {
-    @apply font-black text-5xl tracking-[0.3em] text-lime-400
-           bg-gray-900 rounded-2xl px-6 py-4 text-center
-           border-2 border-lime-400/30 select-all;
+    @apply font-black text-5xl tracking-[0.3em] text-white
+           bg-ink-900 rounded-2xl px-6 py-4 text-center
+           border border-white/10 shadow-card select-all;
   }
 
   // Indicador de carga
   .loading-dot {
-    @apply inline-block w-2 h-2 rounded-full bg-lime-400 animate-bounce;
+    @apply inline-block w-2 h-2 rounded-full bg-white/80 animate-bounce;
   }
 
   // Chip de jugador
   .player-chip {
-    @apply flex items-center gap-3 bg-gray-800 rounded-2xl px-4 py-3
-           border border-gray-700;
+    @apply flex items-center gap-3 bg-ink-900 rounded-2xl px-4 py-3
+           border border-white/5 shadow-card;
   }
 
   // Barra de progreso
   .progress-bar {
-    @apply h-2 rounded-full bg-gray-800 overflow-hidden;
+    @apply h-1.5 rounded-full bg-white/5 overflow-hidden;
 
     .progress-fill {
-      @apply h-full bg-lime-400 rounded-full transition-all duration-500;
+      @apply h-full bg-brand-400 rounded-full transition-all duration-500;
     }
+  }
+
+  // Badges de resultado (ganador / perdedor)
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1
+           text-xs font-bold tracking-wide whitespace-nowrap;
+  }
+  .badge-gold {
+    @apply badge bg-gold-400 text-ink-950;
+  }
+  .badge-red {
+    @apply badge bg-red-500 text-white;
+  }
+  .badge-neutral {
+    @apply badge bg-white/5 text-slate-300 border border-white/10;
+  }
+
+  // Alerta de error
+  .alert-error {
+    @apply bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3
+           text-red-200 text-sm;
   }
 }
 
-// Animaciones globales
+// ── Animaciones globales ─────────────────────────────────────────────────
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
   }
 
   .animate-slide-up {
-    animation: slideUp 0.4s ease-out;
+    animation: slideUp 0.4s ease-out both;
   }
 
   .animate-shake {
     animation: shake 0.4s ease-in-out;
   }
+
+  // Retardos escalonados para listas
+  .delay-1 { animation-delay: 60ms; }
+  .delay-2 { animation-delay: 120ms; }
+  .delay-3 { animation-delay: 180ms; }
+  .delay-4 { animation-delay: 240ms; }
 }
 
 @keyframes fadeIn {
@@ -136,7 +184,7 @@ html, body {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
+  from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 

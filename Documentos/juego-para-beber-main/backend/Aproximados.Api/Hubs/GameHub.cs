@@ -464,34 +464,11 @@ public sealed class GameHub : Hub
             return;
         }
 
-        // Generar comentario sarcástico para el perdedor
-        // (lo hacemos antes de FinalizeRound para tenerlo listo)
-        var loserGuessEstimate = room.Players
-            .Where(p => p.Role == PlayerRole.Estimator && p.Guess.HasValue)
-            .OrderByDescending(p => Room.ComputeRelativeError(p.Guess!.Value, answerResult.Value))
-            .FirstOrDefault();
-
-        string sarcasticComment = "¡Qué ronda más épica! 🎉";
-        if (loserGuessEstimate is not null)
-        {
-            try
-            {
-                using var commentCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                sarcasticComment = await _gemini.GetSarcasticCommentAsync(
-                    loserGuessEstimate.Name,
-                    loserGuessEstimate.Guess!.Value,
-                    answerResult.Value,
-                    question,
-                    room.IsAlcoholFreeRoom,
-                    commentCts.Token);
-            }
-            catch
-            {
-                sarcasticComment = $"¡{loserGuessEstimate.Name}, eso ha sido gloriosamente malo! 🏆";
-            }
-        }
-
-        var result = room.FinalizeRound(answerResult.Value, answerResult.Source, sarcasticComment);
+        // El comentario sarcástico de la IA se retiró de la pantalla de resultados,
+        // así que ya no se hace la segunda llamada a Gemini al cerrar la ronda
+        // (era hasta 10 s más de espera para los jugadores). El campo se mantiene
+        // vacío en el DTO por compatibilidad.
+        var result = room.FinalizeRound(answerResult.Value, answerResult.Source, sarcasticComment: string.Empty);
 
         if (result is null)
         {

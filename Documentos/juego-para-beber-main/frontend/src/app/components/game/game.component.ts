@@ -46,10 +46,24 @@ export class GameComponent implements OnInit, OnDestroy {
     return s.players.find(p => p.playerId === s.redactorPlayerId)?.name ?? '';
   });
 
+  /**
+   * Estimaciones esperadas esta ronda = jugadores conectados - 1 (el Redactor no adivina).
+   * El servidor ya lo calcula así (GuessesExpected); si por cualquier motivo no llega
+   * (0 / undefined), lo derivamos localmente de la lista de jugadores para que el
+   * contador nunca muestre «N/N» con el Redactor incluido.
+   */
+  guessesExpected = computed(() => {
+    const s = this.state();
+    if (!s) return 0;
+    if (s.guessesExpected > 0) return s.guessesExpected;
+    return s.players.filter(p => p.isConnected && p.playerId !== s.redactorPlayerId).length;
+  });
+
   guessProgress = computed(() => {
     const s = this.state();
-    if (!s || s.guessesExpected === 0) return 0;
-    return (s.guessesSubmitted / s.guessesExpected) * 100;
+    const expected = this.guessesExpected();
+    if (!s || expected === 0) return 0;
+    return Math.min(100, (s.guessesSubmitted / expected) * 100);
   });
 
   questionValid = computed(() =>
