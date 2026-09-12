@@ -80,9 +80,9 @@ export class AppComponent implements OnInit, OnDestroy {
         })
     );
 
-    void this.swUpdate.checkForUpdates();
+    void this.swUpdate.checkForUpdate();
     setInterval(() => {
-      void this.swUpdate.checkForUpdates();
+      void this.swUpdate.checkForUpdate();
     }, 60 * 60 * 1000);
   }
 
