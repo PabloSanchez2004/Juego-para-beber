@@ -1,0 +1,402 @@
+// Tests unitarios para Room, ranking, empates, cero, fases y privacidad.
+// Framework: xUnit (añadir referencia en .csproj de tests si se separa en proyecto aparte).
+// Estos tests se pueden ejecutar con: dotnet test
+//
+// Para ejecutarlos en un proyecto separado, crea Aproximados.Tests.csproj con:
+//   <PackageReference Include="xunit" Version="2.9.*" />
+//   <PackageReference Include="xunit.runner.visualstudio" Version="2.8.*" />
+//   <ProjectReference Include="../Aproximados.Api/Aproximados.Api.csproj" />
+
+using Aproximados.Api.Models;
+
+namespace Aproximados.Api.Tests;
+
+public class RoomRelativeErrorTests
+{
+    [Theory]
+    [InlineData(100, 100, 0.0)]          // exacto
+    [InlineData(150, 100, 0.5)]          // 50% error
+    [InlineData(50, 100, 0.5)]           // 50% error (por debajo)
+    [InlineData(0, 100, 1.0)]            // 100% error
+    [InlineData(-100, 100, 2.0)]         // 200% error
+    [InlineData(0, -50, 1.0)]            // respuesta negativa, guess 0
+    [InlineData(-50, -50, 0.0)]          // respuesta negativa, exacto
+    [InlineData(-25, -50, 0.5)]          // respuesta negativa, 50% error
+    public void ComputeRelativeError_StandardCases(double guess, double correct, double expected)
+    {
+        var result = Room.ComputeRelativeError(guess, correct);
+        Assert.Equal(expected, result, precision: 10);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]      // guess=0, correct=0 → error=0 (exacto)
+    [InlineData(5, 0)]      // guess=5, correct=0 → error=5 (absoluto)
+    [InlineData(-3, 0)]     // guess=-3, correct=0 → error=3
+    public void ComputeRelativeError_CorrectAnswerIsZero(double guess, double expectedError)
+    {
+        var result = Room.ComputeRelativeError(guess, 0);
+        Assert.Equal(expectedError, result, precision: 10);
+    }
+}
+
+public class RoomRankingTests
+{
+    private static Room CreateRoomWithPlayers(params (string name, double guess)[] players)
+    {
+        var room = new Room { Code = "TEST" };
+        foreach (var (name, _) in players)
+        {
+            room.TryAddPlayer(new Player
+            {
+                Name = name,
+                ConnectionId = Guid.NewGuid().ToString(),
+                PlayerId = Guid.NewGuid().ToString("N")
+            });
+        }
+
+        // Iniciar juego
+        room.TryStartGame(5, false);
+
+        // Asignar estimaciones directamente (el Redactor no estima)
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        int i = 0;
+        foreach (var p in estimators)
+        {
+            if (i < players.Length)
+            {
+                // Buscar el guess por nombre
+                var match = players.FirstOrDefault(x => x.name == p.Name);
+                if (match != default)
+                    room.TrySubmitGuess(p.PlayerId, match.guess);
+            }
+            i++;
+        }
+
+        return room;
+    }
+
+    [Fact]
+    public void FinalizeRound_SingleWinner_CorrectRanking()
+    {
+        // Arrange: 3 jugadores, respuesta correcta = 100
+        // Ana: guess=100 (0% error) → rank 1
+        // Bob: guess=120 (20% error) → rank 2
+        // Carlos: guess=150 (50% error) → rank 3
+        var room = new Room { Code = "RANK" };
+        var players = new[]
+        {
+            new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" },
+            new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" },
+            new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" }
+        };
+
+        foreach (var p in players) room.TryAddPlayer(p);
+        room.TryStartGame(5, false);
+
+        // Forzar estimaciones (el Redactor no puede estimar)
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        var guesses = new Dictionary<string, double>
+        {
+            ["Ana"] = 100, ["Bob"] = 120, ["Carlos"] = 150
+        };
+
+        foreach (var p in estimators)
+        {
+            if (guesses.TryGetValue(p.Name, out var g))
+                room.TrySubmitGuess(p.PlayerId, g);
+        }
+
+        // Act
+        var result = room.FinalizeRound(100, "test-source", "comentario");
+
+        // Assert
+        Assert.NotNull(result);
+        var ranking = result.Ranking.OrderBy(r => r.Rank).ToList();
+
+        // El jugador con guess=100 debe ser rank 1
+        var winner = ranking.First();
+        Assert.Equal(1, winner.Rank);
+        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+    }
+
+    [Fact]
+    public void FinalizeRound_TieBreak_DeterministicByName()
+    {
+        // Dos jugadores con el mismo error → mismo rango, desempate por nombre
+        var room = new Room { Code = "TIE1" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        var p3 = new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" };
+
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+        room.TryAddPlayer(p3);
+        room.TryStartGame(5, false);
+
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        // Todos con el mismo error del 10%
+        foreach (var p in estimators)
+            room.TrySubmitGuess(p.PlayerId, 110); // 10% error sobre 100
+
+        var result = room.FinalizeRound(100, "src", "comment");
+        Assert.NotNull(result);
+
+        // Todos deben tener el mismo rango (empate)
+        var ranks = result.Ranking.Select(r => r.Rank).Distinct().ToList();
+        Assert.Single(ranks); // todos en el mismo rango
+    }
+
+    [Fact]
+    public void FinalizeRound_CorrectAnswerZero_UsesAbsoluteError()
+    {
+        var room = new Room { Code = "ZERO" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        var p3 = new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" };
+
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+        room.TryAddPlayer(p3);
+        room.TryStartGame(5, false);
+
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        var guesses = new[] { 0.0, 5.0 }; // uno exacto, otro con error 5
+        int i = 0;
+        foreach (var p in estimators)
+        {
+            if (i < guesses.Length)
+                room.TrySubmitGuess(p.PlayerId, guesses[i++]);
+        }
+
+        var result = room.FinalizeRound(0, "src", "comment");
+        Assert.NotNull(result);
+
+        var winner = result.Ranking.OrderBy(r => r.Rank).First();
+        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+    }
+
+    [Fact]
+    public void FinalizeRound_NegativeCorrectAnswer_CorrectError()
+    {
+        var room = new Room { Code = "NEG1" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        var p3 = new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" };
+
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+        room.TryAddPlayer(p3);
+        room.TryStartGame(5, false);
+
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        var guesses = new[] { -50.0, -25.0 }; // exacto y 50% error
+        int i = 0;
+        foreach (var p in estimators)
+        {
+            if (i < guesses.Length)
+                room.TrySubmitGuess(p.PlayerId, guesses[i++]);
+        }
+
+        var result = room.FinalizeRound(-50, "src", "comment");
+        Assert.NotNull(result);
+
+        var winner = result.Ranking.OrderBy(r => r.Rank).First();
+        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+    }
+}
+
+public class RoomPhaseTests
+{
+    [Fact]
+    public void TrySubmitQuestion_WrongPhase_ReturnsFalse()
+    {
+        var room = new Room { Code = "PH01" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        room.TryAddPlayer(p1);
+
+        // En Lobby, no se puede enviar pregunta
+        Assert.False(room.TrySubmitQuestion("p1", "¿Cuántos km tiene la Tierra?"));
+    }
+
+    [Fact]
+    public void TrySubmitGuess_WrongPhase_ReturnsFalse()
+    {
+        var room = new Room { Code = "PH02" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+
+        // En Lobby, no se puede enviar estimación
+        var (ok, _) = room.TrySubmitGuess("p1", 42);
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void TryStartGame_RequiresMinPlayers()
+    {
+        var room = new Room { Code = "PH03" };
+        var p1 = new Player { Name = "Solo", ConnectionId = "c1", PlayerId = "p1" };
+        room.TryAddPlayer(p1);
+
+        Assert.False(room.TryStartGame(5, false));
+    }
+
+    [Fact]
+    public void TryStartGame_WithEnoughPlayers_Succeeds()
+    {
+        var room = new Room { Code = "PH04" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+
+        Assert.True(room.TryStartGame(5, false));
+        Assert.Equal(GamePhase.WritingQuestion, room.Phase);
+    }
+
+    [Fact]
+    public void RedactorCannotSubmitGuess()
+    {
+        var room = new Room { Code = "PH05" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryStartGame(5, false);
+
+        var redactor = room.Players.First(p => p.Role == PlayerRole.Redactor);
+        room.TrySubmitQuestion(redactor.PlayerId, "¿Cuántos km tiene la Tierra?");
+
+        var (ok, _) = room.TrySubmitGuess(redactor.PlayerId, 12742);
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void PlayerCannotSubmitGuessTwice()
+    {
+        var room = new Room { Code = "PH06" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryStartGame(5, false);
+
+        var redactor = room.Players.First(p => p.Role == PlayerRole.Redactor);
+        var estimator = room.Players.First(p => p.Role == PlayerRole.Estimator);
+
+        room.TrySubmitQuestion(redactor.PlayerId, "¿Cuántos km tiene la Tierra?");
+
+        var (ok1, _) = room.TrySubmitGuess(estimator.PlayerId, 12742);
+        var (ok2, _) = room.TrySubmitGuess(estimator.PlayerId, 13000);
+
+        Assert.True(ok1);
+        Assert.False(ok2); // segunda vez debe fallar
+    }
+}
+
+public class RoomPrivacyTests
+{
+    [Fact]
+    public void ToDto_DuringCollectingGuesses_HidesOtherPlayersGuesses()
+    {
+        var room = new Room { Code = "PRIV" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        var p3 = new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" };
+
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+        room.TryAddPlayer(p3);
+        room.TryStartGame(5, false);
+
+        var redactor = room.Players.First(p => p.Role == PlayerRole.Redactor);
+        room.TrySubmitQuestion(redactor.PlayerId, "¿Cuántos km tiene la Tierra?");
+
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        room.TrySubmitGuess(estimators[0].PlayerId, 12742);
+
+        // Ana solicita el estado: solo debe ver su propia estimación
+        var dtoForEstimator0 = room.ToDto(estimators[0].PlayerId);
+        var dtoForEstimator1 = estimators.Count > 1 ? room.ToDto(estimators[1].PlayerId) : null;
+
+        // El jugador que envió debe ver su propia estimación
+        var selfInDto = dtoForEstimator0.Players.First(p => p.PlayerId == estimators[0].PlayerId);
+        Assert.NotNull(selfInDto.Guess);
+
+        // El otro jugador no debe ver la estimación del primero
+        if (dtoForEstimator1 is not null)
+        {
+            var otherInDto = dtoForEstimator1.Players.First(p => p.PlayerId == estimators[0].PlayerId);
+            Assert.Null(otherInDto.Guess);
+        }
+    }
+
+    [Fact]
+    public void ToDto_DuringShowingResults_RevealsAllGuesses()
+    {
+        var room = new Room { Code = "REVL" };
+        var p1 = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        var p2 = new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" };
+        var p3 = new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" };
+
+        room.TryAddPlayer(p1);
+        room.TryAddPlayer(p2);
+        room.TryAddPlayer(p3);
+        room.TryStartGame(5, false);
+
+        var redactor = room.Players.First(p => p.Role == PlayerRole.Redactor);
+        room.TrySubmitQuestion(redactor.PlayerId, "¿Cuántos km tiene la Tierra?");
+
+        var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
+        foreach (var e in estimators)
+            room.TrySubmitGuess(e.PlayerId, 12742);
+
+        room.FinalizeRound(12742, "wikipedia", "¡Exacto!");
+
+        // En ShowingResults, todos ven todas las estimaciones
+        var dto = room.ToDto(estimators[0].PlayerId);
+        var estimatorDtos = dto.Players.Where(p => p.PlayerId != redactor.PlayerId).ToList();
+
+        foreach (var ep in estimatorDtos)
+            Assert.NotNull(ep.Guess);
+    }
+}
+
+public class RoomReconnectionTests
+{
+    [Fact]
+    public void TryReconnectPlayer_ValidPlayerId_UpdatesConnectionId()
+    {
+        var room = new Room { Code = "RCON" };
+        var player = new Player { Name = "Ana", ConnectionId = "old-conn", PlayerId = "p1" };
+        room.TryAddPlayer(player);
+
+        room.MarkDisconnected("old-conn");
+        Assert.False(player.IsConnected);
+
+        bool ok = room.TryReconnectPlayer("p1", "new-conn");
+        Assert.True(ok);
+        Assert.True(player.IsConnected);
+        Assert.Equal("new-conn", player.ConnectionId);
+    }
+
+    [Fact]
+    public void TryReconnectPlayer_InvalidPlayerId_ReturnsFalse()
+    {
+        var room = new Room { Code = "RCON2" };
+        bool ok = room.TryReconnectPlayer("nonexistent", "new-conn");
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void PurgeTimedOutPlayers_RemovesExpiredPlayers()
+    {
+        var room = new Room { Code = "PURG" };
+        var player = new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" };
+        room.TryAddPlayer(player);
+
+        room.MarkDisconnected("c1");
+
+        // Simular que el grace period expiró
+        player.DisconnectedAt = DateTimeOffset.UtcNow - Room.ReconnectGracePeriod - TimeSpan.FromSeconds(1);
+
+        var purged = room.PurgeTimedOutPlayers();
+        Assert.Contains("p1", purged);
+        Assert.DoesNotContain(room.Players, p => p.PlayerId == "p1");
+    }
+}

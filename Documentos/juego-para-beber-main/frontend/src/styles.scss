@@ -1,0 +1,151 @@
+// Tailwind CSS
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// Variables globales
+:root {
+  --color-primary: #a3e635;      // lime-400
+  --color-primary-dark: #84cc16; // lime-500
+  --color-bg: #030712;           // gray-950
+  --color-surface: #111827;      // gray-900
+  --color-surface-2: #1f2937;    // gray-800
+  --color-muted: #6b5b95;        // purple muted
+  --color-text: #f9fafb;         // gray-50
+  --color-text-muted: #9ca3af;   // gray-400
+}
+
+// Reset base
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+// Scrollbar personalizada
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 2px;
+}
+
+// Componentes reutilizables
+@layer components {
+  // Botón primario (lime)
+  .btn-primary {
+    @apply w-full py-5 px-6 rounded-2xl font-bold text-xl text-gray-950
+           bg-lime-400 hover:bg-lime-300 active:scale-95
+           transition-all duration-150 ease-out
+           focus:outline-none focus:ring-4 focus:ring-lime-400/50
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+           select-none;
+  }
+
+  // Botón secundario (gris oscuro)
+  .btn-secondary {
+    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-gray-200
+           bg-gray-800 hover:bg-gray-700 active:scale-95
+           border border-gray-700 hover:border-gray-600
+           transition-all duration-150 ease-out
+           focus:outline-none focus:ring-4 focus:ring-gray-500/50
+           disabled:opacity-40 disabled:cursor-not-allowed
+           select-none;
+  }
+
+  // Botón inactivo/morado
+  .btn-muted {
+    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-gray-400
+           bg-gray-900 border border-gray-700
+           cursor-not-allowed opacity-60 select-none;
+  }
+
+  // Input de texto grande
+  .input-field {
+    @apply w-full py-4 px-5 rounded-2xl text-xl font-semibold
+           bg-gray-900 border-2 border-gray-700
+           text-white placeholder-gray-500
+           focus:outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/30
+           transition-all duration-150;
+  }
+
+  // Tarjeta de superficie
+  .card {
+    @apply bg-gray-900 rounded-3xl p-6 border border-gray-800;
+  }
+
+  // Badge de código de sala
+  .room-code {
+    @apply font-black text-5xl tracking-[0.3em] text-lime-400
+           bg-gray-900 rounded-2xl px-6 py-4 text-center
+           border-2 border-lime-400/30 select-all;
+  }
+
+  // Indicador de carga
+  .loading-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-lime-400 animate-bounce;
+  }
+
+  // Chip de jugador
+  .player-chip {
+    @apply flex items-center gap-3 bg-gray-800 rounded-2xl px-4 py-3
+           border border-gray-700;
+  }
+
+  // Barra de progreso
+  .progress-bar {
+    @apply h-2 rounded-full bg-gray-800 overflow-hidden;
+
+    .progress-fill {
+      @apply h-full bg-lime-400 rounded-full transition-all duration-500;
+    }
+  }
+}
+
+// Animaciones globales
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.4s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+// Safe area para dispositivos con notch
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }

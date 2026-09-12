@@ -1,0 +1,240 @@
+<!-- Pantalla de juego: WritingQuestion y CollectingGuesses -->
+<div class="min-h-screen flex flex-col px-4 py-6 animate-fade-in">
+
+  @if (state(); as s) {
+
+    <!-- Header: ronda y progreso -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
+          Ronda {{ s.roundNumber }} / {{ s.maxRounds }}
+        </span>
+        <span class="text-gray-500 text-sm">
+          {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ s.roomCode }}
+        </span>
+      </div>
+      <!-- Barra de progreso de rondas -->
+      <div class="progress-bar">
+        <div
+          class="progress-fill"
+          [style.width.%]="(s.roundNumber / s.maxRounds) * 100">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FASE: WritingQuestion ── -->
+    @if (isWritingPhase()) {
+
+      @if (isRedactor()) {
+        <!-- Redactor: escribe la pregunta -->
+        <div class="flex-1 flex flex-col animate-slide-up">
+          <div class="card mb-6">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="text-3xl">✍️</span>
+              <div>
+                <h2 class="text-xl font-bold text-lime-400">Eres el Redactor</h2>
+                <p class="text-gray-400 text-sm">Escribe una pregunta de respuesta numérica</p>
+              </div>
+            </div>
+            <p class="text-gray-500 text-xs">
+              Ejemplos: "¿Cuántos km hay de Madrid a Barcelona?",
+              "¿En qué año se fundó la ONU?", "¿Cuántos huesos tiene el cuerpo humano?"
+            </p>
+          </div>
+
+          <div class="flex-1">
+            <label for="question-input" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+              Tu pregunta
+            </label>
+            <textarea
+              id="question-input"
+              class="input-field resize-none h-32 text-base"
+              placeholder="¿Cuántos...? ¿En qué año...? ¿Cuánto pesa...?"
+              [value]="question()"
+              (input)="question.set($any($event.target).value)"
+              maxlength="300"
+              [disabled]="questionSent() || loading()"
+              aria-label="Escribe tu pregunta aquí">
+            </textarea>
+            <p class="text-gray-600 text-xs mt-1 text-right">
+              {{ question().length }}/300
+            </p>
+          </div>
+
+          @if (errorMsg()) {
+            <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                        text-red-300 text-sm my-4 animate-shake" role="alert">
+              ⚠️ {{ errorMsg() }}
+            </div>
+          }
+
+          @if (!questionSent()) {
+            <button
+              class="btn-primary mt-4"
+              [disabled]="!questionValid() || loading()"
+              (click)="submitQuestion()"
+              aria-label="Enviar pregunta">
+              @if (loading()) {
+                <span class="flex items-center justify-center gap-2">
+                  <span class="loading-dot" style="animation-delay:0ms"></span>
+                  <span class="loading-dot" style="animation-delay:150ms"></span>
+                  <span class="loading-dot" style="animation-delay:300ms"></span>
+                </span>
+              } @else {
+                📤 Lanzar pregunta
+              }
+            </button>
+          } @else {
+            <div class="btn-muted mt-4 text-center">
+              ✅ Pregunta enviada. Esperando estimaciones...
+            </div>
+          }
+        </div>
+
+      } @else {
+        <!-- Estimador: espera la pregunta -->
+        <div class="flex-1 flex flex-col items-center justify-center animate-slide-up">
+          <div class="text-6xl mb-6 animate-bounce-slow">⏳</div>
+          <h2 class="text-2xl font-bold text-white mb-2">Espera un momento</h2>
+          <p class="text-gray-400 text-center">
+            El Redactor está preparando la pregunta...
+          </p>
+
+          <!-- Quién es el Redactor -->
+          <div class="mt-6 card text-center">
+            <p class="text-gray-500 text-sm">Redactor esta ronda</p>
+            <p class="text-lime-400 font-bold text-xl mt-1">{{ redactorName() }}</p>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ── FASE: CollectingGuesses ── -->
+    @if (isCollectingPhase()) {
+
+      <!-- Pregunta visible para todos -->
+      <div class="card mb-6 animate-slide-up">
+        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">
+          Pregunta de la ronda
+        </p>
+        <p class="text-white text-xl font-bold leading-snug">
+          {{ s.currentQuestion }}
+        </p>
+      </div>
+
+      <!-- Progreso de estimaciones (sin revelar quién) -->
+      <div class="mb-6">
+        <div class="flex justify-between text-sm text-gray-500 mb-2">
+          <span>Estimaciones recibidas</span>
+          <span class="text-lime-400 font-bold">{{ s.guessesSubmitted }}/{{ s.guessesExpected }}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="guessProgress()"></div>
+        </div>
+      </div>
+
+      @if (isRedactor()) {
+        <!-- Redactor: espera y puede forzar resultados -->
+        <div class="flex-1 flex flex-col items-center justify-center">
+          <div class="text-5xl mb-4 animate-pulse-fast">👀</div>
+          <p class="text-gray-400 text-center mb-6">
+            Esperando que todos estimen...
+          </p>
+
+          @if (errorMsg()) {
+            <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                        text-red-300 text-sm mb-4 w-full animate-shake" role="alert">
+              ⚠️ {{ errorMsg() }}
+            </div>
+          }
+
+          <button
+            class="btn-secondary w-full"
+            [disabled]="loading()"
+            (click)="forceResults()"
+            aria-label="Cerrar ronda y ver resultados">
+            @if (loading()) {
+              Calculando...
+            } @else {
+              ⏭️ Cerrar ronda (sin esperar a todos)
+            }
+          </button>
+        </div>
+
+      } @else {
+        <!-- Estimador: envía su estimación -->
+        <div class="flex-1 flex flex-col animate-slide-up">
+
+          @if (!guessSent()) {
+            <div>
+              <label for="guess-input" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+                Tu estimación
+              </label>
+              <input
+                id="guess-input"
+                type="text"
+                inputmode="decimal"
+                class="input-field text-center text-3xl font-black"
+                placeholder="0"
+                [value]="guessInput()"
+                (input)="onGuessInput($event)"
+                [disabled]="guessSent() || loading()"
+                autocomplete="off"
+                aria-label="Escribe tu estimación numérica">
+              <p class="text-gray-600 text-xs mt-1 text-center">
+                Puedes usar decimales y números negativos
+              </p>
+            </div>
+
+            @if (errorMsg()) {
+              <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                          text-red-300 text-sm my-4 animate-shake" role="alert">
+                ⚠️ {{ errorMsg() }}
+              </div>
+            }
+
+            <button
+              class="btn-primary mt-6"
+              [disabled]="!guessValid() || loading()"
+              (click)="submitGuess()"
+              aria-label="Enviar estimación">
+              @if (loading()) {
+                <span class="flex items-center justify-center gap-2">
+                  <span class="loading-dot" style="animation-delay:0ms"></span>
+                  <span class="loading-dot" style="animation-delay:150ms"></span>
+                  <span class="loading-dot" style="animation-delay:300ms"></span>
+                </span>
+              } @else {
+                🎯 Enviar estimación
+              }
+            </button>
+
+          } @else {
+            <!-- Estimación enviada: esperar -->
+            <div class="flex-1 flex flex-col items-center justify-center">
+              <div class="text-6xl mb-4">✅</div>
+              <h2 class="text-2xl font-bold text-lime-400 mb-2">¡Enviado!</h2>
+              <p class="text-gray-400 text-center">
+                Tu estimación está guardada. Esperando al resto...
+              </p>
+              <div class="mt-6 card text-center w-full">
+                <p class="text-gray-500 text-sm">Tu estimación</p>
+                <p class="text-white font-black text-4xl mt-1">{{ guessInput() }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+
+  } @else {
+    <!-- Cargando -->
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
+        <p class="text-gray-400">Cargando partida...</p>
+      </div>
+    </div>
+  }
+
+</div>

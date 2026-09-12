@@ -1,0 +1,195 @@
+<!-- Pantalla de resultados -->
+<div class="min-h-screen flex flex-col px-4 py-6 animate-fade-in">
+
+  @if (state(); as s) {
+    @if (result(); as r) {
+
+      <!-- Header -->
+      <div class="text-center mb-6">
+        <p class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
+          Ronda {{ r.roundNumber }} / {{ s.maxRounds }}
+        </p>
+        <h2 class="text-3xl font-black text-white mt-1">Resultados</h2>
+      </div>
+
+      <!-- Pregunta y respuesta correcta -->
+      <div class="card mb-5 animate-slide-up">
+        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">
+          Pregunta
+        </p>
+        <p class="text-white font-semibold text-lg leading-snug mb-4">
+          {{ r.question }}
+        </p>
+
+        <div class="border-t border-gray-800 pt-4">
+          <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-1">
+            Respuesta correcta
+          </p>
+          <p class="text-lime-400 font-black text-4xl">
+            {{ r.correctAnswer | number:'1.0-4' }}
+          </p>
+          @if (r.answerSource) {
+            <p class="text-gray-600 text-xs mt-1 truncate">
+              📎 {{ r.answerSource }}
+            </p>
+          }
+        </div>
+      </div>
+
+      <!-- Ranking -->
+      <div class="mb-5">
+        <h3 class="text-gray-400 text-sm font-semibold uppercase tracking-wide mb-3">
+          Ranking
+        </h3>
+
+        <div class="space-y-3">
+          @for (entry of ranking(); track trackByPlayerId($index, entry)) {
+            <div
+              class="card animate-slide-up"
+              [class.border-lime-400]="entry.rank === 1"
+              [class.border-gray-700]="entry.rank !== 1"
+              [class.ring-2]="isMe(entry.playerId)"
+              [class.ring-lime-400]="isMe(entry.playerId)"
+              [class.ring-offset-2]="isMe(entry.playerId)"
+              [class.ring-offset-gray-950]="isMe(entry.playerId)">
+
+              <div class="flex items-center gap-4">
+                <!-- Posición -->
+                <div class="text-3xl flex-shrink-0 w-10 text-center">
+                  {{ rankEmoji(entry.rank) }}
+                </div>
+
+                <!-- Nombre y estimación -->
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold text-white text-lg truncate">
+                    {{ entry.playerName }}
+                    @if (isMe(entry.playerId)) {
+                      <span class="text-lime-400 text-xs ml-1">(tú)</span>
+                    }
+                  </p>
+                  <p class="text-gray-400 text-sm">
+                    Estimó: <span class="text-white font-semibold">{{ entry.guess | number:'1.0-4' }}</span>
+                  </p>
+                </div>
+
+                <!-- Error -->
+                <div class="text-right flex-shrink-0">
+                  <p class="font-bold text-sm">{{ formatError(entry.relativeErrorPercent) }}</p>
+                  @if (entry.drinksThisRound > 0) {
+                    <p class="text-red-400 text-xs mt-1">
+                      {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} ×{{ entry.drinksThisRound }}
+                    </p>
+                  }
+                </div>
+              </div>
+
+              <!-- Castigo -->
+              @if (entry.penaltyDescription) {
+                <div class="mt-3 pt-3 border-t border-gray-800">
+                  <p class="text-gray-400 text-sm">{{ entry.penaltyDescription }}</p>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Comentario sarcástico -->
+      @if (r.sarcasticComment) {
+        <div class="card mb-5 bg-purple-900/30 border-purple-700/50 animate-slide-up">
+          <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">
+            🤖 La IA opina sobre {{ r.loserName }}
+          </p>
+          <p class="text-white text-lg font-semibold italic leading-snug">
+            "{{ r.sarcasticComment }}"
+          </p>
+        </div>
+      }
+
+      <!-- Resumen de tragos -->
+      <div class="card mb-6 animate-slide-up">
+        <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">
+          Marcador acumulado
+        </p>
+        <div class="space-y-2">
+          @for (player of s.players; track player.playerId) {
+            <div class="flex items-center justify-between">
+              <span class="text-white font-semibold">
+                {{ player.name }}
+                @if (isMe(player.playerId)) {
+                  <span class="text-lime-400 text-xs ml-1">(tú)</span>
+                }
+              </span>
+              <div class="flex items-center gap-4">
+                <span class="text-gray-400 text-sm">
+                  {{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }} {{ player.drinksOwed }}
+                </span>
+                <span class="text-lime-400 font-bold">{{ player.score }} pts</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Error -->
+      @if (errorMsg()) {
+        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                    text-red-300 text-sm mb-4 animate-shake" role="alert">
+          ⚠️ {{ errorMsg() }}
+        </div>
+      }
+
+      <!-- Botón siguiente ronda / fin -->
+      @if (isLastRound()) {
+        <div class="text-center">
+          <div class="text-5xl mb-4">🏆</div>
+          <h3 class="text-2xl font-black text-lime-400 mb-2">¡Juego terminado!</h3>
+          <p class="text-gray-400 mb-6">
+            Ganador: <span class="text-white font-bold">{{ r.winnerName }}</span>
+          </p>
+          <button
+            class="btn-primary"
+            [disabled]="loading()"
+            (click)="nextRound()"
+            aria-label="Ver pantalla final">
+            🎉 Ver clasificación final
+          </button>
+        </div>
+      } @else {
+        <button
+          class="btn-primary mt-auto"
+          [disabled]="loading()"
+          (click)="nextRound()"
+          aria-label="Siguiente ronda">
+          @if (loading()) {
+            <span class="flex items-center justify-center gap-2">
+              <span class="loading-dot" style="animation-delay:0ms"></span>
+              <span class="loading-dot" style="animation-delay:150ms"></span>
+              <span class="loading-dot" style="animation-delay:300ms"></span>
+            </span>
+          } @else {
+            ➡️ Siguiente ronda
+          }
+        </button>
+      }
+
+    } @else {
+      <!-- Sin resultado aún -->
+      <div class="flex-1 flex items-center justify-center">
+        <div class="text-center">
+          <div class="text-5xl mb-4 animate-bounce-slow">⏳</div>
+          <p class="text-gray-400">Calculando resultados...</p>
+        </div>
+      </div>
+    }
+
+  } @else {
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
+        <p class="text-gray-400">Cargando...</p>
+      </div>
+    </div>
+  }
+
+</div>

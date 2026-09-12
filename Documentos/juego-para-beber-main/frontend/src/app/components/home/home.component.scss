@@ -1,0 +1,42 @@
+// Estilos específicos del componente Home
+// La mayoría de estilos vienen de Tailwind en el template
+
+:host {
+  display: block;
+}
+
+// Slider de rondas personalizado
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #374151; // gray-700
+  outline: none;
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #a3e635; // lime-400
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.2);
+    transition: box-shadow 0.15s;
+
+    &:hover {
+      box-shadow: 0 0 0 6px rgba(163, 230, 53, 0.3);
+    }
+  }
+
+  &::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #a3e635;
+    cursor: pointer;
+    border: none;
+  }
+}

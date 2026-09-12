@@ -1,0 +1,219 @@
+<!-- Pantalla principal / identificación / unirse -->
+<div class="min-h-screen flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
+
+  <!-- Logo / título -->
+  <div class="text-center mb-10">
+    <div class="text-7xl mb-3" aria-hidden="true">🎯</div>
+    <h1 class="text-5xl font-black text-lime-400 tracking-tight">Aproximados</h1>
+    <p class="text-gray-400 mt-2 text-lg">El juego donde gana quien más se acerca</p>
+  </div>
+
+  <!-- ── Vista principal ── -->
+  @if (view() === 'main') {
+    <div class="w-full max-w-sm space-y-4 animate-slide-up">
+      <button
+        class="btn-primary"
+        (click)="showCreate()"
+        aria-label="Crear una sala nueva">
+        🏠 Crear sala
+      </button>
+
+      <button
+        class="btn-secondary"
+        (click)="showJoin()"
+        aria-label="Unirse a una sala existente">
+        🚪 Unirme a una sala
+      </button>
+
+      <p class="text-center text-gray-600 text-sm pt-4">
+        Necesitas al menos 2 jugadores para empezar
+      </p>
+    </div>
+  }
+
+  <!-- ── Crear sala ── -->
+  @if (view() === 'create') {
+    <div class="w-full max-w-sm space-y-5 animate-slide-up">
+      <h2 class="text-2xl font-bold text-center text-white">Identifícate</h2>
+
+      <!-- Nombre -->
+      <div>
+        <label for="create-name" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+          Tu nombre
+        </label>
+        <input
+          id="create-name"
+          type="text"
+          class="input-field"
+          placeholder="¿Cómo te llaman?"
+          [value]="name()"
+          (input)="onNameInput($event)"
+          maxlength="20"
+          autocomplete="nickname"
+          autocapitalize="words"
+          [attr.aria-invalid]="name().length > 0 && !nameValid()"
+          aria-describedby="create-name-hint">
+        <p id="create-name-hint" class="text-gray-600 text-xs mt-1">
+          Entre 2 y 20 caracteres
+        </p>
+      </div>
+
+      <!-- Rondas -->
+      <div>
+        <label for="max-rounds" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+          Rondas: <span class="text-lime-400">{{ maxRounds() }}</span>
+        </label>
+        <input
+          id="max-rounds"
+          type="range"
+          min="3"
+          max="20"
+          step="1"
+          class="w-full accent-lime-400"
+          [value]="maxRounds()"
+          (input)="maxRounds.set(+($any($event.target).value))"
+          aria-label="Número de rondas">
+        <div class="flex justify-between text-gray-600 text-xs mt-1">
+          <span>3</span><span>20</span>
+        </div>
+      </div>
+
+      <!-- Modo sin alcohol -->
+      <button
+        type="button"
+        class="w-full flex items-center justify-between bg-gray-900 rounded-2xl px-5 py-4
+               border-2 transition-all duration-150"
+        [class.border-lime-400]="alcoholFree()"
+        [class.border-gray-700]="!alcoholFree()"
+        (click)="toggleAlcoholFree()"
+        [attr.aria-pressed]="alcoholFree()"
+        aria-label="Modo sin alcohol">
+        <span class="font-semibold text-white">
+          {{ alcoholFree() ? '🧃 Modo sin alcohol' : '🍺 Modo con alcohol' }}
+        </span>
+        <span class="text-2xl">{{ alcoholFree() ? '✅' : '⬜' }}</span>
+      </button>
+
+      <!-- Error -->
+      @if (errorMsg()) {
+        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                    text-red-300 text-sm animate-shake" role="alert">
+          ⚠️ {{ errorMsg() }}
+        </div>
+      }
+
+      <!-- Botones -->
+      <button
+        class="btn-primary"
+        [disabled]="!nameValid() || loading()"
+        (click)="createRoom()"
+        aria-label="Crear sala">
+        @if (loading()) {
+          <span class="flex items-center justify-center gap-2">
+            <span class="loading-dot" style="animation-delay:0ms"></span>
+            <span class="loading-dot" style="animation-delay:150ms"></span>
+            <span class="loading-dot" style="animation-delay:300ms"></span>
+          </span>
+        } @else {
+          🚀 Crear sala
+        }
+      </button>
+
+      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+        ← Volver
+      </button>
+    </div>
+  }
+
+  <!-- ── Unirse a sala ── -->
+  @if (view() === 'join') {
+    <div class="w-full max-w-sm space-y-5 animate-slide-up">
+      <h2 class="text-2xl font-bold text-center text-white">Identifícate</h2>
+
+      <!-- Nombre -->
+      <div>
+        <label for="join-name" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+          Tu nombre
+        </label>
+        <input
+          id="join-name"
+          type="text"
+          class="input-field"
+          placeholder="¿Cómo te llaman?"
+          [value]="name()"
+          (input)="onNameInput($event)"
+          maxlength="20"
+          autocomplete="nickname"
+          autocapitalize="words">
+      </div>
+
+      <!-- Código de sala -->
+      <div>
+        <label for="room-code" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+          Código de sala
+        </label>
+        <input
+          id="room-code"
+          type="text"
+          class="input-field text-center text-3xl font-black tracking-[0.4em] uppercase"
+          placeholder="ABCD"
+          [value]="roomCode()"
+          (input)="onCodeInput($event)"
+          maxlength="4"
+          autocomplete="off"
+          autocapitalize="characters"
+          inputmode="text"
+          aria-label="Escupe el código aquí">
+        <p class="text-gray-600 text-xs mt-1 text-center">
+          Escupe el código aquí (4 letras)
+        </p>
+      </div>
+
+      <!-- Modo sin alcohol -->
+      <button
+        type="button"
+        class="w-full flex items-center justify-between bg-gray-900 rounded-2xl px-5 py-4
+               border-2 transition-all duration-150"
+        [class.border-lime-400]="alcoholFree()"
+        [class.border-gray-700]="!alcoholFree()"
+        (click)="toggleAlcoholFree()"
+        [attr.aria-pressed]="alcoholFree()"
+        aria-label="Modo sin alcohol">
+        <span class="font-semibold text-white">
+          {{ alcoholFree() ? '🧃 Modo sin alcohol' : '🍺 Modo con alcohol' }}
+        </span>
+        <span class="text-2xl">{{ alcoholFree() ? '✅' : '⬜' }}</span>
+      </button>
+
+      <!-- Error -->
+      @if (errorMsg()) {
+        <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                    text-red-300 text-sm animate-shake" role="alert">
+          ⚠️ {{ errorMsg() }}
+        </div>
+      }
+
+      <!-- Botones -->
+      <button
+        class="btn-primary"
+        [disabled]="!nameValid() || !codeValid() || loading()"
+        (click)="joinRoom()"
+        aria-label="Unirse a la sala">
+        @if (loading()) {
+          <span class="flex items-center justify-center gap-2">
+            <span class="loading-dot" style="animation-delay:0ms"></span>
+            <span class="loading-dot" style="animation-delay:150ms"></span>
+            <span class="loading-dot" style="animation-delay:300ms"></span>
+          </span>
+        } @else {
+          🚪 Entrar
+        }
+      </button>
+
+      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+        ← Volver
+      </button>
+    </div>
+  }
+
+</div>

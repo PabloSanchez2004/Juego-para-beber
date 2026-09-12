@@ -1,0 +1,136 @@
+<!-- Sala de espera -->
+<div class="min-h-screen flex flex-col px-4 py-8 animate-fade-in">
+
+  @if (state(); as s) {
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <button
+        class="text-gray-500 hover:text-white transition-colors p-2 -ml-2"
+        (click)="leaveRoom()"
+        aria-label="Salir de la sala">
+        ← Salir
+      </button>
+      <span class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
+        Sala de espera
+      </span>
+      <div class="w-16"></div>
+    </div>
+
+    <!-- Código de sala -->
+    <div class="text-center mb-8">
+      <p class="text-gray-500 text-sm font-semibold uppercase tracking-widest mb-3">
+        Código de sala
+      </p>
+      <button
+        class="room-code block mx-auto cursor-pointer hover:border-lime-400/60 transition-all
+               active:scale-95"
+        (click)="copyCode()"
+        [attr.aria-label]="'Código de sala: ' + s.roomCode + '. Toca para copiar'"
+        title="Toca para copiar">
+        {{ s.roomCode }}
+      </button>
+      <p class="text-gray-600 text-sm mt-2">
+        {{ codeCopied() ? '✅ ¡Copiado!' : '👆 Toca para copiar' }}
+      </p>
+    </div>
+
+    <!-- Modo de juego -->
+    <div class="card mb-6 text-center">
+      <span class="text-2xl">{{ s.isAlcoholFreeRoom ? '🧃' : '🍺' }}</span>
+      <p class="text-gray-300 font-semibold mt-1">
+        {{ s.isAlcoholFreeRoom ? 'Modo sin alcohol' : 'Modo con alcohol' }}
+      </p>
+      <p class="text-gray-600 text-sm">{{ s.maxRounds }} rondas</p>
+    </div>
+
+    <!-- Lista de jugadores -->
+    <div class="mb-8">
+      <h2 class="text-gray-400 text-sm font-semibold uppercase tracking-wide mb-3">
+        Jugadores ({{ connectedCount() }}/{{ players().length }})
+      </h2>
+
+      <div class="space-y-3">
+        @for (player of players(); track trackByPlayerId($index, player)) {
+          <div
+            class="player-chip animate-slide-up"
+            [class.border-lime-400]="isMe(player)"
+            [class.opacity-50]="!player.isConnected">
+
+            <!-- Avatar -->
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
+                        flex-shrink-0"
+                 [class.bg-lime-400]="isMe(player)"
+                 [class.text-gray-950]="isMe(player)"
+                 [class.bg-gray-700]="!isMe(player)"
+                 [class.text-white]="!isMe(player)">
+              {{ player.name.charAt(0).toUpperCase() }}
+            </div>
+
+            <!-- Nombre -->
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-white truncate">
+                {{ player.name }}
+                @if (isMe(player)) {
+                  <span class="text-lime-400 text-xs ml-1">(tú)</span>
+                }
+              </p>
+              <p class="text-gray-500 text-xs">
+                {{ player.isConnected ? '🟢 Conectado' : '🔴 Desconectado' }}
+                @if (player.alcoholFree) {
+                  · 🧃 Sin alcohol
+                }
+              </p>
+            </div>
+
+            <!-- Puntuación (siempre 0 en lobby) -->
+            <div class="text-right flex-shrink-0">
+              <p class="text-gray-600 text-xs">Puntos</p>
+              <p class="text-white font-bold">{{ player.score }}</p>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Error -->
+    @if (errorMsg()) {
+      <div class="bg-red-900/50 border border-red-700 rounded-2xl px-4 py-3
+                  text-red-300 text-sm mb-4 animate-shake" role="alert">
+        ⚠️ {{ errorMsg() }}
+      </div>
+    }
+
+    <!-- Botón iniciar -->
+    @if (canStart()) {
+      <button
+        class="btn-primary mt-auto"
+        [disabled]="loading()"
+        (click)="startGame()"
+        aria-label="Iniciar el juego">
+        @if (loading()) {
+          <span class="flex items-center justify-center gap-2">
+            <span class="loading-dot" style="animation-delay:0ms"></span>
+            <span class="loading-dot" style="animation-delay:150ms"></span>
+            <span class="loading-dot" style="animation-delay:300ms"></span>
+          </span>
+        } @else {
+          🎮 ¡Empezar!
+        }
+      </button>
+    } @else {
+      <div class="btn-muted mt-auto text-center">
+        Esperando jugadores (mínimo 2)...
+      </div>
+    }
+
+  } @else {
+    <!-- Cargando -->
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
+        <p class="text-gray-400">Cargando sala...</p>
+      </div>
+    </div>
+  }
+
+</div>

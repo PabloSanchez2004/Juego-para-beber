@@ -1,0 +1,38 @@
+# ── Node / Angular ────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/out-tsc/
+frontend/.sass-cache/
+frontend/connect.lock
+frontend/coverage/
+frontend/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+
+# ── .NET ──────────────────────────────────────────────────────────────────
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/*.suo
+backend/.vs/
+backend/**/appsettings.Production.json
+
+# ── Secretos (NUNCA commitear) ────────────────────────────────────────────
+.env
+.env.*
+*.env
+appsettings.Secrets.json
+secrets.json
+
+# ── IDEs ──────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,0 +1,39 @@
+version: '3.9'
+
+# [RELLENAR_AQUI_PABLO: Configura las variables de entorno antes de ejecutar.
+#  Copia este archivo y crea un docker-compose.override.yml con tus valores reales.
+#  NUNCA commitees credenciales reales en docker-compose.yml.
+# ]
+
+services:
+  backend:
+    build:
+      context: ./backend/Aproximados.Api
+      dockerfile: Dockerfile
+    ports:
+      # [RELLENAR_AQUI_PABLO: Cambia el puerto externo si 5000 está ocupado]
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # [RELLENAR_AQUI_PABLO: Pon aquí tu API key de Gemini]
+      - GEMINI_API_KEY=
+      # [RELLENAR_AQUI_PABLO: Pon aquí la URL de tu frontend Angular desplegado]
+      - Cors__AllowedOrigins__0=http://localhost:4200
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # [RELLENAR_AQUI_PABLO: Cambia el puerto externo si 4200 está ocupado]
+      - "4200:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
