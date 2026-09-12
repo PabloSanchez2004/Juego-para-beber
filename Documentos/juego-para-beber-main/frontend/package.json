@@ -1,6 +1,9 @@
 {
   "name": "aproximados-frontend",
   "version": "1.0.0",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -10,6 +13,13 @@
     "lint": "ng lint"
   },
   "private": true,
+  "allowScripts": {
+    "esbuild": true,
+    "nice-napi": true,
+    "@parcel/watcher": true,
+    "lmdb": true,
+    "msgpackr-extract": true
+  },
   "dependencies": {
     "@angular/animations": "^17.3.0",
     "@angular/common": "^17.3.0",
