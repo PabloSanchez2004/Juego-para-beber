@@ -12,7 +12,8 @@ namespace Aproximados.Api.Services;
 /// 1. Obtener la respuesta numérica verificada a una pregunta.
 /// 2. Generar un comentario sarcástico para el perdedor.
 ///
-/// Usa Gemini Flash (por defecto gemini-3.8-flash) con Google Search grounding.
+/// Usa gemini-3.5-flash-lite (el más barato y rápido para tareas cortas)
+/// con Google Search grounding. El modelo está fijado: no se puede sobrescribir.
 ///
 /// IMPORTANTE: La API key se lee de la variable de entorno GEMINI_API_KEY.
 /// Nunca se expone al frontend.
@@ -31,19 +32,21 @@ public sealed class GeminiService
     // ]
 
     private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
-    private const string DefaultModelId = "gemini-3.8-flash";
+    private const string ModelId = "gemini-3.5-flash-lite";
+    private const int StrictMaxOutputTokens = 100;
 
     private readonly HttpClient _http;
     private readonly ILogger<GeminiService> _logger;
     private readonly string _apiKey;
-    private readonly string _modelId;
 
     public GeminiService(HttpClient http, ILogger<GeminiService> logger, IConfiguration config)
     {
         _http = http;
         _logger = logger;
         _apiKey = ResolveApiKey(config, logger);
-        _modelId = ResolveModelId(config, logger);
+        logger.LogInformation(
+            "Gemini model forzado: {Model} ({Url}), MaxOutputTokens={Tokens}",
+            ModelId, $"{GeminiBaseUrl}/models/{ModelId}:generateContent", StrictMaxOutputTokens);
     }
 
     private static string ResolveApiKey(IConfiguration config, ILogger logger)
@@ -70,21 +73,6 @@ public sealed class GeminiService
             "También se aceptan Gemini__ApiKey o Gemini:ApiKey. " +
             "Sin clave, las respuestas de la IA no se podrán verificar.");
         return string.Empty;
-    }
-
-    private static string ResolveModelId(IConfiguration config, ILogger logger)
-    {
-        var model = config["Gemini:ModelId"]
-                    ?? config["GEMINI_MODEL_ID"]
-                    ?? Environment.GetEnvironmentVariable("GEMINI_MODEL_ID")
-                    ?? DefaultModelId;
-
-        model = model.Trim();
-        if (model.StartsWith("models/", StringComparison.OrdinalIgnoreCase))
-            model = model["models/".Length..];
-
-        logger.LogInformation("Gemini model: {Model} ({Url})", model, $"{GeminiBaseUrl}/models/{model}:generateContent");
-        return model;
     }
 
     // ── Respuesta numérica ─────────────────────────────────────────────────
@@ -163,7 +151,7 @@ public sealed class GeminiService
             GenerationConfig = new GeminiGenerationConfig
             {
                 Temperature = 1.2f,
-                MaxOutputTokens = 150
+                MaxOutputTokens = StrictMaxOutputTokens
             }
         };
 
@@ -186,7 +174,7 @@ public sealed class GeminiService
 
     private async Task<JsonDocument> CallGeminiAsync(GeminiRequest requestBody, CancellationToken ct)
     {
-        var url = $"{GeminiBaseUrl}/models/{_modelId}:generateContent?key={_apiKey}";
+        var url = $"{GeminiBaseUrl}/models/{ModelId}:generateContent?key={_apiKey}";
         var json = JsonSerializer.Serialize(requestBody, GeminiJsonContext.Default.GeminiRequest);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -215,10 +203,7 @@ public sealed class GeminiService
             GenerationConfig = new GeminiGenerationConfig
             {
                 Temperature = 0.1f,
-                // Los modelos con "thinking" (gemini-2.5+/3.x) descuentan los tokens de
-                // razonamiento de este límite. Con un valor bajo el JSON llega truncado
-                // (finishReason = MAX_TOKENS). Es un tope, no un gasto fijo.
-                MaxOutputTokens = 2048
+                MaxOutputTokens = StrictMaxOutputTokens
             }
         };
 
@@ -576,7 +561,7 @@ public sealed class GeminiGenerationConfig
     public float Temperature { get; set; } = 0.1f;
 
     [JsonPropertyName("maxOutputTokens")]
-    public int MaxOutputTokens { get; set; } = 512;
+    public int MaxOutputTokens { get; set; } = 100;
 
     [JsonPropertyName("responseMimeType")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
