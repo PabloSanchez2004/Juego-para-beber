@@ -199,11 +199,11 @@ public sealed class GeminiService
 
     private static string BuildAnswerPrompt(string question)
     {
-        return $"""
+        return $$"""
             Eres un asistente de verificación de datos para el juego "Aproximados".
             Tu tarea es encontrar la respuesta numérica exacta y verificable a esta pregunta usando búsqueda web.
             
-            Pregunta: "{question}"
+            Pregunta: "{{question}}"
             
             Reglas:
             1. Busca la respuesta en fuentes fiables y actuales.
@@ -213,13 +213,13 @@ public sealed class GeminiService
             5. Responde SOLO en el formato JSON especificado.
             
             Responde en JSON con este esquema exacto:
-            {{
+            {
               "value": <número>,
               "unit": "<unidad de medida o vacío>",
               "source": "<URL o nombre de la fuente>",
               "is_verifiable": <true|false>,
               "explanation": "<breve explicación en español>"
-            }}
+            }
             """;
     }
 
