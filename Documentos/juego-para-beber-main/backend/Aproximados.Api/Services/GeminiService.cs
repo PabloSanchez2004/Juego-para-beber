@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Aproximados.Api.Services;
 
@@ -213,7 +215,10 @@ public sealed class GeminiService
             GenerationConfig = new GeminiGenerationConfig
             {
                 Temperature = 0.1f,
-                MaxOutputTokens = 160
+                // Los modelos con "thinking" (gemini-2.5+/3.x) descuentan los tokens de
+                // razonamiento de este límite. Con un valor bajo el JSON llega truncado
+                // (finishReason = MAX_TOKENS). Es un tope, no un gasto fijo.
+                MaxOutputTokens = 2048
             }
         };
 
@@ -252,20 +257,61 @@ public sealed class GeminiService
             """;
     }
 
-    private static GeminiAnswerResult ParseAnswerResponse(JsonDocument doc)
+    // ── Parseo robusto de la respuesta ─────────────────────────────────────
+    //
+    // Tres capas, en este orden:
+    //   1. Limpieza por fuerza bruta (Regex): quita ```json, ``` y texto fuera del JSON.
+    //   2. Deserialización tolerante (AllowTrailingCommas, comentarios, nombres alternativos).
+    //   3. Fallback por Regex sobre el texto crudo: rescata CorrectAnswer aunque el JSON
+    //      llegue truncado (finishReason = MAX_TOKENS) o con basura alrededor.
+    // En todos los fallos se registra el rawResponse exacto para diagnosticar.
+
+    private static readonly Regex MarkdownFenceRegex =
+        new(@"```\s*(?:json)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex IsValidRegex =
+        new(@"""?IsValid""?\s*:\s*(true|false)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CorrectAnswerRegex =
+        new(@"""?CorrectAnswer""?\s*:\s*""?(-?\d+(?:[.,]\d+)?)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly JsonDocumentOptions TolerantJsonOptions = new()
     {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private GeminiAnswerResult ParseAnswerResponse(JsonDocument doc)
+    {
+        var rawText = ExtractTextFromResponse(doc);
+        var finishReason = GetFinishReason(doc);
+
+        if (string.IsNullOrWhiteSpace(rawText))
+        {
+            _logger.LogWarning(
+                "Gemini devolvió texto vacío. finishReason={Finish}. rawResponse={Raw}",
+                finishReason, doc.RootElement.GetRawText());
+
+            return GeminiAnswerResult.Unverifiable(finishReason == "MAX_TOKENS"
+                ? "La IA agotó el límite de tokens antes de responder."
+                : "Respuesta vacía de la IA.");
+        }
+
+        if (finishReason is "MAX_TOKENS" or "SAFETY" or "RECITATION")
+        {
+            _logger.LogWarning(
+                "Gemini terminó con finishReason={Finish}; la respuesta puede estar truncada. rawResponse={Raw}",
+                finishReason, rawText);
+        }
+
+        var cleaned = SanitizeGeminiJson(rawText);
+
         try
         {
-            var text = ExtractTextFromResponse(doc);
-            if (string.IsNullOrWhiteSpace(text))
-                return GeminiAnswerResult.Unverifiable("Respuesta vacía de la IA.");
-
-            text = SanitizeGeminiJson(text);
-
-            using var parsed = JsonDocument.Parse(text);
+            using var parsed = JsonDocument.Parse(cleaned, TolerantJsonOptions);
             var root = parsed.RootElement;
 
-            bool isValid = ReadBoolean(root, "IsValid", "isValid", "is_verifiable");
+            bool isValid = ReadBoolean(root, "IsValid", "isValid", "is_valid", "is_verifiable");
             string expl = ReadString(root, "Explanation", "explanation");
 
             if (!isValid)
@@ -276,24 +322,34 @@ public sealed class GeminiService
                         : expl);
             }
 
-            if (!TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "value"))
+            if (!TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "correct_answer", "value"))
+            {
+                _logger.LogWarning("JSON válido pero sin CorrectAnswer numérico. rawResponse={Raw}", rawText);
                 return GeminiAnswerResult.Unverifiable("La IA no devolvió un valor numérico.");
+            }
 
             string source = ReadString(root, "source", "Source");
             string unit = ReadString(root, "unit", "Unit");
             return new GeminiAnswerResult(value, unit, source, true, expl);
         }
-        catch (Exception)
+        catch (JsonException ex)
         {
+            _logger.LogWarning(ex,
+                "JSON de Gemini inválido (finishReason={Finish}). Intentando rescate por regex. rawResponse={Raw}",
+                finishReason, rawText);
+            return ParseWithRegexFallback(rawText, finishReason);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado parseando Gemini. rawResponse={Raw}", rawText);
             return GeminiAnswerResult.Unverifiable("No se pudo parsear la respuesta de la IA.");
         }
     }
 
+    /// <summary>Opción 1: limpieza por fuerza bruta antes de deserializar.</summary>
     private static string SanitizeGeminiJson(string text)
     {
-        text = text.Replace("```json", "", StringComparison.OrdinalIgnoreCase)
-                   .Replace("```", "")
-                   .Trim();
+        text = MarkdownFenceRegex.Replace(text, string.Empty).Trim();
 
         int start = text.IndexOf('{');
         int end = text.LastIndexOf('}');
@@ -301,6 +357,64 @@ public sealed class GeminiService
             text = text[start..(end + 1)];
 
         return text.Trim();
+    }
+
+    /// <summary>
+    /// Último recurso: extrae IsValid/CorrectAnswer del texto crudo aunque el JSON
+    /// esté truncado o rodeado de prosa.
+    /// </summary>
+    private GeminiAnswerResult ParseWithRegexFallback(string rawText, string finishReason)
+    {
+        var validMatch = IsValidRegex.Match(rawText);
+        if (validMatch.Success &&
+            validMatch.Groups[1].Value.Equals("false", StringComparison.OrdinalIgnoreCase))
+        {
+            return GeminiAnswerResult.Unverifiable(
+                "La pregunta no se puede verificar numéricamente con datos concretos.");
+        }
+
+        var numMatch = CorrectAnswerRegex.Match(rawText);
+        if (numMatch.Success &&
+            double.TryParse(numMatch.Groups[1].Value.Replace(',', '.'),
+                NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        {
+            _logger.LogInformation("CorrectAnswer recuperado por regex: {Value}", value);
+            return new GeminiAnswerResult(
+                value, string.Empty, string.Empty, true,
+                "Valor recuperado de una respuesta parcial de la IA.");
+        }
+
+        return GeminiAnswerResult.Unverifiable(finishReason == "MAX_TOKENS"
+            ? "La IA se quedó sin tokens antes de terminar la respuesta."
+            : "No se pudo parsear la respuesta de la IA.");
+    }
+
+    private static string GetFinishReason(JsonDocument doc)
+    {
+        try
+        {
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("promptFeedback", out var feedback) &&
+                feedback.TryGetProperty("blockReason", out var block))
+            {
+                return $"BLOCKED:{block.GetString()}";
+            }
+
+            if (root.TryGetProperty("candidates", out var candidates) &&
+                candidates.ValueKind == JsonValueKind.Array &&
+                candidates.GetArrayLength() > 0 &&
+                candidates[0].TryGetProperty("finishReason", out var finish))
+            {
+                return finish.GetString() ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Solo diagnóstico; nunca debe romper el flujo.
+        }
+
+        return string.Empty;
     }
 
     private static bool ReadBoolean(JsonElement root, params string[] names)
@@ -332,8 +446,8 @@ public sealed class GeminiService
             }
 
             if (prop.ValueKind == JsonValueKind.String &&
-                double.TryParse(prop.GetString(), System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out value))
+                double.TryParse((prop.GetString() ?? string.Empty).Replace(',', '.'),
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out value))
             {
                 return true;
             }
@@ -354,16 +468,46 @@ public sealed class GeminiService
         return string.Empty;
     }
 
+    /// <summary>
+    /// Concatena todas las partes de texto del primer candidato.
+    /// Antes solo se leía parts[0]: con grounding o "thinking" la respuesta puede
+    /// venir dividida en varias partes, y parts[0] puede ser un resumen de razonamiento.
+    /// </summary>
     private static string ExtractTextFromResponse(JsonDocument doc)
     {
         try
         {
-            return doc.RootElement
-                .GetProperty("candidates")[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
-                .GetString() ?? string.Empty;
+            if (!doc.RootElement.TryGetProperty("candidates", out var candidates) ||
+                candidates.ValueKind != JsonValueKind.Array ||
+                candidates.GetArrayLength() == 0)
+            {
+                return string.Empty;
+            }
+
+            if (!candidates[0].TryGetProperty("content", out var content) ||
+                !content.TryGetProperty("parts", out var parts) ||
+                parts.ValueKind != JsonValueKind.Array)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            foreach (var part in parts.EnumerateArray())
+            {
+                if (part.TryGetProperty("thought", out var thought) &&
+                    thought.ValueKind == JsonValueKind.True)
+                {
+                    continue; // resumen de razonamiento, no es la respuesta
+                }
+
+                if (part.TryGetProperty("text", out var textProp) &&
+                    textProp.ValueKind == JsonValueKind.String)
+                {
+                    sb.Append(textProp.GetString());
+                }
+            }
+
+            return sb.ToString();
         }
         catch
         {
