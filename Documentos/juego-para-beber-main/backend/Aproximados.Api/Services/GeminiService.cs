@@ -42,18 +42,33 @@ public sealed class GeminiService
     {
         _http = http;
         _logger = logger;
+        _apiKey = ResolveApiKey(config, logger);
+    }
 
-        _apiKey = config["Gemini:ApiKey"]
-                  ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-                  ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(_apiKey))
+    private static string ResolveApiKey(IConfiguration config, ILogger logger)
+    {
+        var candidates = new (string Source, string? Value)[]
         {
-            _logger.LogWarning(
-                "[RELLENAR_AQUI_PABLO] GEMINI_API_KEY no configurada. " +
-                "Las llamadas a Gemini fallarán con 401. " +
-                "Configura la variable de entorno GEMINI_API_KEY o Gemini:ApiKey en appsettings.");
+            ("GEMINI_API_KEY (configuration)", config["GEMINI_API_KEY"]),
+            ("GEMINI_API_KEY (environment)", Environment.GetEnvironmentVariable("GEMINI_API_KEY")),
+            ("Gemini__ApiKey (environment)", Environment.GetEnvironmentVariable("Gemini__ApiKey")),
+            ("Gemini:ApiKey (configuration)", config["Gemini:ApiKey"]),
+        };
+
+        foreach (var (source, value) in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                logger.LogInformation("Gemini API key cargada desde {Source}", source);
+                return value.Trim();
+            }
         }
+
+        logger.LogError(
+            "GEMINI_API_KEY no configurada. En Render: Environment → GEMINI_API_KEY. " +
+            "También se aceptan Gemini__ApiKey o Gemini:ApiKey. " +
+            "Sin clave, las respuestas de la IA no se podrán verificar.");
+        return string.Empty;
     }
 
     // ── Respuesta numérica ─────────────────────────────────────────────────
