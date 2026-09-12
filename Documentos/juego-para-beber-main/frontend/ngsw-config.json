@@ -3,7 +3,7 @@
   "index": "/index.html",
   "assetGroups": [
     {
-      "name": "app-shell",
+      "name": "app",
       "installMode": "prefetch",
       "updateMode": "prefetch",
       "resources": {
@@ -19,7 +19,7 @@
     {
       "name": "assets",
       "installMode": "lazy",
-      "updateMode": "prefetch",
+      "updateMode": "lazy",
       "resources": {
         "files": [
           "/assets/**",

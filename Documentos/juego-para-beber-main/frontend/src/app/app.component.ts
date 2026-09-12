@@ -1,7 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { RoomService } from './services/room.service';
 import { GamePhase } from './models/game.models';
 
@@ -40,9 +42,12 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private roomService: RoomService,
     private router: Router,
+    private swUpdate: SwUpdate,
   ) {}
 
   ngOnInit(): void {
+    this.setupServiceWorkerUpdates();
+
     // Navegar automáticamente según el estado del juego
     this.subs.add(
       this.roomService.gameState$.subscribe(state => {
@@ -61,6 +66,24 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+  }
+
+  private setupServiceWorkerUpdates(): void {
+    if (!this.swUpdate.isEnabled) return;
+
+    this.subs.add(
+      this.swUpdate.versionUpdates
+        .pipe(filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY'))
+        .subscribe(() => {
+          console.info('[PWA] New version available. Reloading...');
+          void this.swUpdate.activateUpdate().then(() => document.location.reload());
+        })
+    );
+
+    void this.swUpdate.checkForUpdates();
+    setInterval(() => {
+      void this.swUpdate.checkForUpdates();
+    }, 60 * 60 * 1000);
   }
 
   private navigateToPhase(phase: GamePhase): void {

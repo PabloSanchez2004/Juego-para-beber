@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import {
+  HttpTransportType,
   HubConnection,
   HubConnectionBuilder,
   HubConnectionState,
@@ -18,9 +19,7 @@ import {
 } from '../models/game.models';
 import { environment } from '../../environments/environment';
 
-const HUB_URL = environment.hubUrl.includes('localhost')
-  ? 'https://juego-para-beber.onrender.com/gamehub'
-  : environment.hubUrl;
+const PRODUCTION_API_URL = 'https://juego-para-beber.onrender.com';
 
 const RECONNECT_DELAYS_MS = [0, 2000, 5000, 10000, 20000, 30000];
 const SESSION_KEY = 'aproximados_session';
@@ -65,8 +64,14 @@ export class RoomService implements OnDestroy {
 
     this._connectionStatus$.next('connecting');
 
+    const hubUrl = this.getHubUrl();
+    console.info(`[RoomService] Connecting to: ${hubUrl}`);
+
     this._hub = new HubConnectionBuilder()
-      .withUrl(HUB_URL)
+      .withUrl(hubUrl, {
+        skipNegotiation: false,
+        transport: HttpTransportType.WebSockets,
+      })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (ctx) => {
           const idx = Math.min(ctx.previousRetryCount, RECONNECT_DELAYS_MS.length - 1);
@@ -236,6 +241,20 @@ export class RoomService implements OnDestroy {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
+
+  private getHubUrl(): string {
+    const baseUrl = (environment.apiUrl || PRODUCTION_API_URL).replace(/\/$/, '');
+    const hubUrl = `${baseUrl}/gamehub`;
+    const runningOnProdHost =
+      typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+
+    if ((environment.production || runningOnProdHost) && hubUrl.includes('localhost')) {
+      console.error('❌ CRITICAL: Production code trying to connect to localhost!');
+      return `${PRODUCTION_API_URL}/gamehub`;
+    }
+
+    return hubUrl;
+  }
 
   private async ensureConnected(): Promise<void> {
     if (this._hub?.state !== HubConnectionState.Connected) {

@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  hubUrl: 'https://juego-para-beber.onrender.com/gamehub',
+  apiUrl: 'http://localhost:5000',
 };
