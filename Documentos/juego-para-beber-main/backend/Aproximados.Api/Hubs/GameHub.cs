@@ -12,8 +12,8 @@ namespace Aproximados.Api.Hubs;
 ///   JoinRoom(code, name, alcoholFree)     → JoinedRoom | Error
 ///   Reconnect(code, playerId)             → ReconnectedRoom | Error
 ///   StartGame(maxRounds)                  → GameStateUpdated (broadcast)
-///   SubmitQuestion(question)              → GameStateUpdated (broadcast)
-///   SubmitGuess(guess)                    → GuessAcknowledged | GameStateUpdated
+///   SubmitQuestion(question)              → GameStateUpdated (broadcast) + lanza pre-cálculo IA en 2º plano
+///   SubmitGuess(guess)                    → GuessAcknowledged | GameStateUpdated (la última recoge el pre-cálculo)
 ///   RequestResults()                      → GameStateUpdated (broadcast, fuerza cierre ronda)
 ///   NextRound()                           → GameStateUpdated (broadcast)
 ///   LeaveRoom()                           → (limpieza)
@@ -256,17 +256,61 @@ public sealed class GameHub : Hub
             return;
         }
 
-        if (!room.TrySubmitQuestion(player.PlayerId, question))
+        // Pre-cálculo en segundo plano: la consulta a Gemini arranca aquí, sin
+        // bloquear al Redactor ni al Hub. La tarea queda guardada en la sala y
+        // FinalizeRoundAsync la recoge cuando llegue la última estimación. Así la
+        // latencia de la IA se solapa con el tiempo que los jugadores tardan en
+        // escribir, en lugar de sumarse al final y provocar 504 en el proxy.
+        if (!room.TrySubmitQuestion(player.PlayerId, question, StartAnswerLookup))
         {
             await SendError("No puedes enviar la pregunta ahora (fase incorrecta o no eres el Redactor).");
             return;
         }
 
-        // Broadcast inmediato para que los estimadores vean la pregunta
+        // Broadcast inmediato para que los estimadores vean la pregunta y empiecen a escribir
         await BroadcastState(room, excludePlayerId: null);
 
         _logger.LogInformation("Pregunta enviada en sala {Code}: {Q}", room.Code, question);
     }
+
+    /// <summary>
+    /// Lanza la consulta a Gemini en el thread pool y devuelve la tarea sin esperarla.
+    /// Solo captura servicios singleton (_gemini, _logger): nunca Context ni Clients,
+    /// porque el Hub se destruye al terminar la invocación de SubmitQuestion.
+    /// La tarea nunca falla: GetNumericAnswerAsync ya convierte timeouts y errores
+    /// en un GeminiAnswerResult no verificable.
+    /// </summary>
+    private Task<GeminiAnswerResult> StartAnswerLookup(string question)
+    {
+        var gemini = _gemini;
+        var logger = _logger;
+        var startedAt = DateTimeOffset.UtcNow;
+
+        return Task.Run(async () =>
+        {
+            using var cts = new CancellationTokenSource(AnswerLookupTimeout);
+            try
+            {
+                var result = await gemini.GetNumericAnswerAsync(question, cts.Token);
+                logger.LogInformation(
+                    "Pre-cálculo IA completado en {Ms} ms (verificable: {Ok}) para: {Q}",
+                    (DateTimeOffset.UtcNow - startedAt).TotalMilliseconds, result.IsVerifiable, question);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                return GeminiAnswerResult.Unverifiable("Timeout al consultar la IA.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Pre-cálculo IA falló para: {Q}", question);
+                return GeminiAnswerResult.Unverifiable($"Error de IA: {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>Tiempo máximo de la consulta numérica a la IA (pre-cálculo o fallback).</summary>
+    private static readonly TimeSpan AnswerLookupTimeout = TimeSpan.FromSeconds(20);
 
     // ── Enviar estimación ──────────────────────────────────────────────────
 
@@ -367,17 +411,38 @@ public sealed class GameHub : Hub
 
         var question = room.CurrentQuestion ?? string.Empty;
 
-        // Consultar Gemini (con timeout y cancelación)
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        GeminiAnswerResult answerResult;
+        // Recuperar la respuesta pre-calculada al enviar la pregunta. Si la IA ya
+        // terminó (lo habitual), el await es instantáneo; si no, solo esperamos el
+        // tiempo restante en vez de los 15-20 s completos.
+        var pending = room.GetPendingAnswerTask();
+        if (pending is null)
+        {
+            // Sin pre-cálculo (p. ej. la pregunta cambió tras un reset): fallback síncrono
+            _logger.LogWarning("Sala {Code} sin pre-cálculo de IA; consultando ahora.", room.Code);
+            pending = StartAnswerLookup(question);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Sala {Code}: pre-cálculo IA {Estado}.",
+                room.Code, pending.IsCompleted ? "ya disponible" : "aún en curso, esperando");
+        }
 
+        GeminiAnswerResult answerResult;
         try
         {
-            answerResult = await _gemini.GetNumericAnswerAsync(question, cts.Token);
+            // El timeout está garantizado dentro de la tarea; WaitAsync es solo una
+            // red de seguridad para no colgar nunca la invocación del Hub.
+            answerResult = await pending.WaitAsync(AnswerLookupTimeout);
         }
-        catch (OperationCanceledException)
+        catch (TimeoutException)
         {
             answerResult = GeminiAnswerResult.Unverifiable("Timeout al consultar la IA.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error recuperando la respuesta de la IA en sala {Code}", room.Code);
+            answerResult = GeminiAnswerResult.Unverifiable($"Error de IA: {ex.Message}");
         }
 
         if (!answerResult.IsVerifiable)

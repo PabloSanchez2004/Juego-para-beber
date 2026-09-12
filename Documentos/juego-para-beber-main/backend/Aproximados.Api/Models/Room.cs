@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Aproximados.Api.Services;
 
 namespace Aproximados.Api.Models;
 
@@ -44,6 +45,14 @@ public sealed class Room
     private int _redactorIndex; // índice rotativo
     private RoundResult? _lastResult;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Respuesta de la IA pre-calculada en segundo plano para la pregunta actual.
+    /// Se lanza en <see cref="TrySubmitQuestion"/> y se consume al finalizar la ronda,
+    /// de modo que la latencia de Gemini se solapa con el tiempo que tardan los
+    /// jugadores en escribir sus estimaciones.
+    /// </summary>
+    private PendingAnswer? _pendingAnswer;
 
     public int MaxRounds { get; private set; } = DefaultMaxRounds;
     public bool IsAlcoholFreeRoom { get; private set; }
@@ -153,6 +162,7 @@ public sealed class Room
             _redactorIndex = 0;
             _phase = GamePhase.WritingQuestion;
             _roundNumber = 1;
+            _pendingAnswer = null;
             AssignRedactor();
             _lastActivity = DateTimeOffset.UtcNow;
             return true;
@@ -163,7 +173,17 @@ public sealed class Room
     /// Registra la pregunta del Redactor y avanza a CollectingGuesses.
     /// Devuelve false si la fase o el jugador no son correctos.
     /// </summary>
-    public bool TrySubmitQuestion(string playerId, string question)
+    /// <param name="startAnswerLookup">
+    /// Fábrica que lanza (sin bloquear) la consulta a la IA para la pregunta ya
+    /// normalizada. La tarea resultante se guarda en la sala y se recupera con
+    /// <see cref="GetPendingAnswerTask"/> al finalizar la ronda. Se invoca dentro
+    /// del lock para que la transición de fase y el arranque del pre-cálculo sean
+    /// atómicos: ningún jugador puede cerrar la ronda antes de que exista la tarea.
+    /// </param>
+    public bool TrySubmitQuestion(
+        string playerId,
+        string question,
+        Func<string, Task<GeminiAnswerResult>>? startAnswerLookup = null)
     {
         lock (_lock)
         {
@@ -171,10 +191,31 @@ public sealed class Room
             if (_redactorPlayerId != playerId) return false;
             if (string.IsNullOrWhiteSpace(question)) return false;
 
-            _currentQuestion = question.Trim();
+            var normalized = question.Trim();
+            _currentQuestion = normalized;
             _phase = GamePhase.CollectingGuesses;
+            _pendingAnswer = startAnswerLookup is null
+                ? null
+                : new PendingAnswer(normalized, startAnswerLookup(normalized));
             _lastActivity = DateTimeOffset.UtcNow;
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Devuelve la tarea de pre-cálculo de la IA para la pregunta actual, o null
+    /// si no existe o corresponde a una pregunta distinta (p. ej. tras un reset).
+    /// </summary>
+    public Task<GeminiAnswerResult>? GetPendingAnswerTask()
+    {
+        lock (_lock)
+        {
+            if (_pendingAnswer is null) return null;
+            if (_currentQuestion is null) return null;
+            if (!string.Equals(_pendingAnswer.Question, _currentQuestion, StringComparison.Ordinal))
+                return null;
+
+            return _pendingAnswer.Task;
         }
     }
 
@@ -257,9 +298,12 @@ public sealed class Room
             const int winnerDrinks = 3;
             const int loserPenalty = 2;
 
-            // Aplicar tragos a los jugadores
-            foreach (var r in results)
+            // Aplicar tragos a los jugadores.
+            // Bucle por índice: reasignamos results[i] dentro del bucle y un foreach
+            // lanzaría InvalidOperationException (colección modificada).
+            for (int i = 0; i < results.Count; i++)
             {
+                var r = results[i];
                 var player = _players[r.PlayerId];
                 bool isWinner = winners.Any(w => w.PlayerId == r.PlayerId);
                 bool isLoser = losers.Any(l => l.PlayerId == r.PlayerId) && !isWinner;
@@ -287,8 +331,7 @@ public sealed class Room
                 player.Score += Math.Max(0, 100 - (int)Math.Round(ranked.First(x => x.Player.PlayerId == r.PlayerId).Error * 100));
 
                 // Actualizar resultado con drinks
-                var idx = results.IndexOf(r);
-                results[idx] = r with { DrinksThisRound = drinks, PenaltyDescription = penalty };
+                results[i] = r with { DrinksThisRound = drinks, PenaltyDescription = penalty };
             }
 
             // Ganadores reparten tragos (ya contabilizados arriba en los demás)
@@ -314,6 +357,7 @@ public sealed class Room
             };
 
             _lastResult = roundResult;
+            _pendingAnswer = null;
             _phase = GamePhase.ShowingResults;
             _lastActivity = DateTimeOffset.UtcNow;
             return roundResult;
@@ -344,6 +388,7 @@ public sealed class Room
                 p.ResetForNewRound();
 
             _currentQuestion = null;
+            _pendingAnswer = null;
             _phase = GamePhase.WritingQuestion;
             _lastActivity = DateTimeOffset.UtcNow;
             return true;
@@ -373,6 +418,7 @@ public sealed class Room
                 p.Guess = null;
 
             _currentQuestion = null;
+            _pendingAnswer = null;
             _phase = GamePhase.WritingQuestion;
             _lastActivity = DateTimeOffset.UtcNow;
         }
@@ -443,3 +489,9 @@ public sealed class Room
         return Math.Abs(guess - correct) / Math.Abs(correct);
     }
 }
+
+/// <summary>
+/// Tarea de la IA lanzada en segundo plano junto con la pregunta a la que responde.
+/// Guardar la pregunta permite descartar resultados obsoletos si la ronda se reinicia.
+/// </summary>
+public sealed record PendingAnswer(string Question, Task<GeminiAnswerResult> Task);
