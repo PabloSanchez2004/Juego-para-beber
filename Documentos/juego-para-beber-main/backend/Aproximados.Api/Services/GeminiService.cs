@@ -190,7 +190,7 @@ public sealed class GeminiService
         return JsonDocument.Parse(responseJson);
     }
 
-    private static GeminiRequest BuildRequestWithGrounding(string prompt, object? responseSchema = null)
+    private static GeminiRequest BuildRequestWithGrounding(string prompt, GeminiResponseSchema? responseSchema = null)
     {
         var request = new GeminiRequest
         {
@@ -303,18 +303,18 @@ public sealed class GeminiService
 
     // ── Schema JSON para respuesta estructurada ────────────────────────────
 
-    private static readonly object AnswerSchema = new
+    private static readonly GeminiResponseSchema AnswerSchema = new()
     {
-        type = "object",
-        properties = new
+        Type = "object",
+        Properties = new GeminiSchemaProperties
         {
-            value = new { type = "number" },
-            unit = new { type = "string" },
-            source = new { type = "string" },
-            is_verifiable = new { type = "boolean" },
-            explanation = new { type = "string" }
+            Value = new GeminiSchemaTypeProperty { Type = "number" },
+            Unit = new GeminiSchemaTypeProperty { Type = "string" },
+            Source = new GeminiSchemaTypeProperty { Type = "string" },
+            IsVerifiable = new GeminiSchemaTypeProperty { Type = "boolean" },
+            Explanation = new GeminiSchemaTypeProperty { Type = "string" }
         },
-        required = new[] { "value", "unit", "source", "is_verifiable", "explanation" }
+        Required = ["value", "unit", "source", "is_verifiable", "explanation"]
     };
 }
 
@@ -382,7 +382,43 @@ public sealed class GeminiGenerationConfig
 
     [JsonPropertyName("responseSchema")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? ResponseSchema { get; set; }
+    public GeminiResponseSchema? ResponseSchema { get; set; }
+}
+
+public sealed class GeminiResponseSchema
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "object";
+
+    [JsonPropertyName("properties")]
+    public GeminiSchemaProperties Properties { get; set; } = new();
+
+    [JsonPropertyName("required")]
+    public List<string> Required { get; set; } = [];
+}
+
+public sealed class GeminiSchemaProperties
+{
+    [JsonPropertyName("value")]
+    public GeminiSchemaTypeProperty Value { get; set; } = new();
+
+    [JsonPropertyName("unit")]
+    public GeminiSchemaTypeProperty Unit { get; set; } = new();
+
+    [JsonPropertyName("source")]
+    public GeminiSchemaTypeProperty Source { get; set; } = new();
+
+    [JsonPropertyName("is_verifiable")]
+    public GeminiSchemaTypeProperty IsVerifiable { get; set; } = new();
+
+    [JsonPropertyName("explanation")]
+    public GeminiSchemaTypeProperty Explanation { get; set; } = new();
+}
+
+public sealed class GeminiSchemaTypeProperty
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "string";
 }
 
 [JsonSerializable(typeof(GeminiRequest))]
@@ -391,4 +427,8 @@ public sealed class GeminiGenerationConfig
 [JsonSerializable(typeof(GeminiTool))]
 [JsonSerializable(typeof(GoogleSearchTool))]
 [JsonSerializable(typeof(GeminiGenerationConfig))]
+[JsonSerializable(typeof(GeminiResponseSchema))]
+[JsonSerializable(typeof(GeminiSchemaProperties))]
+[JsonSerializable(typeof(GeminiSchemaTypeProperty))]
+[JsonSerializable(typeof(List<string>))]
 internal partial class GeminiJsonContext : JsonSerializerContext { }
