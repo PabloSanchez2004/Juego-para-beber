@@ -234,25 +234,20 @@ public sealed class GeminiService
     private static string BuildAnswerPrompt(string question)
     {
         return $$"""
-            Actúa como un motor de validación estricto para un juego de preguntas numéricas.
-            Pregunta a evaluar: "{{question}}"
+            Eres el árbitro del juego de mesa 'Aproximados'. Tu tarea es evaluar esta pregunta: "{{question}}"
 
-            Tu única tarea es analizar la pregunta, buscar el dato real y extraer UN solo número.
-            Si las fuentes dan una horquilla o rango (ej: 10-20), usa la media aritmética de los extremos.
+            REGLAS ESTRICTAS:
+            1. SIEMPRE debes dar un número en 'CorrectAnswer'.
+            2. Si el dato exacto existe (ej: altura del Everest), dalo.
+            3. Si el dato exacto no existe (ej: cuántas palomas hay en una ciudad, cuántos balones caben en un coche), HAZ TU MEJOR ESTIMACIÓN LÓGICA (Problema de Fermi). NO TE NIEGUES A RESPONDER.
+            4. Si las fuentes dan una horquilla o rango, usa la media aritmética de los extremos.
+            5. Responde ÚNICAMENTE en formato JSON puro. CERO markdown, CERO texto fuera de las llaves.
 
-            Responde ÚNICAMENTE en JSON estricto, plano, sin markdown (sin ```json), sin texto adicional:
-
+            Formato obligatorio:
             {
               "IsValid": true,
-              "CorrectAnswer": 123.45,
-              "Explanation": "Breve motivo de 1 línea"
-            }
-
-            Si la pregunta no tiene sentido, es imposible de verificar numéricamente o es una broma absurda, devuelve:
-            {
-              "IsValid": false,
-              "CorrectAnswer": 0,
-              "Explanation": "La pregunta no se puede verificar numéricamente con datos concretos."
+              "CorrectAnswer": 154000,
+              "Explanation": "Motivo o cálculo rápido en 1 línea"
             }
             """;
     }
@@ -311,9 +306,18 @@ public sealed class GeminiService
             using var parsed = JsonDocument.Parse(cleaned, TolerantJsonOptions);
             var root = parsed.RootElement;
 
-            bool isValid = ReadBoolean(root, "IsValid", "isValid", "is_valid", "is_verifiable");
             string expl = ReadString(root, "Explanation", "explanation");
 
+            // En Aproximados siempre queremos un número (dato real o estimación Fermi).
+            // Si llega CorrectAnswer, se acepta aunque IsValid venga a false.
+            if (TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "correct_answer", "value"))
+            {
+                string source = ReadString(root, "source", "Source");
+                string unit = ReadString(root, "unit", "Unit");
+                return new GeminiAnswerResult(value, unit, source, true, expl);
+            }
+
+            bool isValid = ReadBoolean(root, "IsValid", "isValid", "is_valid", "is_verifiable");
             if (!isValid)
             {
                 return GeminiAnswerResult.Unverifiable(
@@ -322,15 +326,9 @@ public sealed class GeminiService
                         : expl);
             }
 
-            if (!TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "correct_answer", "value"))
-            {
-                _logger.LogWarning("JSON válido pero sin CorrectAnswer numérico. rawResponse={Raw}", rawText);
-                return GeminiAnswerResult.Unverifiable("La IA no devolvió un valor numérico.");
-            }
+            _logger.LogWarning("JSON válido pero sin CorrectAnswer numérico. rawResponse={Raw}", rawText);
+            return GeminiAnswerResult.Unverifiable("La IA no devolvió un valor numérico.");
 
-            string source = ReadString(root, "source", "Source");
-            string unit = ReadString(root, "unit", "Unit");
-            return new GeminiAnswerResult(value, unit, source, true, expl);
         }
         catch (JsonException ex)
         {
@@ -365,14 +363,6 @@ public sealed class GeminiService
     /// </summary>
     private GeminiAnswerResult ParseWithRegexFallback(string rawText, string finishReason)
     {
-        var validMatch = IsValidRegex.Match(rawText);
-        if (validMatch.Success &&
-            validMatch.Groups[1].Value.Equals("false", StringComparison.OrdinalIgnoreCase))
-        {
-            return GeminiAnswerResult.Unverifiable(
-                "La pregunta no se puede verificar numéricamente con datos concretos.");
-        }
-
         var numMatch = CorrectAnswerRegex.Match(rawText);
         if (numMatch.Success &&
             double.TryParse(numMatch.Groups[1].Value.Replace(',', '.'),
