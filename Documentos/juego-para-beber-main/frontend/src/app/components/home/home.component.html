@@ -112,29 +112,14 @@
     </div>
   }
 
-  <!-- ── Unirse a sala ── -->
-  @if (view() === 'join') {
+  <!-- ── Paso 1: código de sala ── -->
+  @if (view() === 'code') {
     <div class="w-full max-w-sm space-y-5 animate-slide-up">
-      <h2 class="text-2xl font-bold text-center text-white">Identifícate</h2>
+      <h2 class="text-2xl font-bold text-center text-white">¿A qué sala vas?</h2>
+      <p class="text-slate-400 text-sm text-center -mt-2">
+        Pide el código a quien creó la partida
+      </p>
 
-      <!-- Nombre -->
-      <div>
-        <label for="join-name" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
-          Tu nombre
-        </label>
-        <input
-          id="join-name"
-          type="text"
-          class="input-field"
-          placeholder="¿Cómo te llaman?"
-          [value]="name()"
-          (input)="onNameInput($event)"
-          maxlength="20"
-          autocomplete="nickname"
-          autocapitalize="words">
-      </div>
-
-      <!-- Código de sala -->
       <div>
         <label for="room-code" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
           Código de sala
@@ -146,24 +131,85 @@
           placeholder="ABCD"
           [value]="roomCode()"
           (input)="onCodeInput($event)"
+          (keyup.enter)="checkCode()"
           maxlength="4"
           autocomplete="off"
           autocapitalize="characters"
           inputmode="text"
-          aria-label="Escupe el código aquí">
+          autofocus
+          aria-label="Código de sala, 4 letras">
         <p class="text-gray-600 text-xs mt-1 text-center">
-          Escupe el código aquí (4 letras)
+          4 letras
         </p>
       </div>
 
-      <!-- Error -->
       @if (errorMsg()) {
         <div class="alert-error animate-shake" role="alert">
           ⚠️ {{ errorMsg() }}
         </div>
       }
 
-      <!-- Botones -->
+      <button
+        class="btn-primary"
+        [disabled]="!codeValid() || loading()"
+        (click)="checkCode()"
+        aria-label="Comprobar el código de sala">
+        @if (loading()) {
+          <span class="flex items-center justify-center gap-2">
+            <span class="loading-dot" style="animation-delay:0ms"></span>
+            <span class="loading-dot" style="animation-delay:150ms"></span>
+            <span class="loading-dot" style="animation-delay:300ms"></span>
+          </span>
+        } @else {
+          Continuar →
+        }
+      </button>
+
+      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+        ← Volver
+      </button>
+    </div>
+  }
+
+  <!-- ── Paso 2: nombre (código ya fijado) ── -->
+  @if (view() === 'name') {
+    <div class="w-full max-w-sm space-y-5 animate-slide-up">
+      <h2 class="text-2xl font-bold text-center text-white">Identifícate</h2>
+
+      <!-- Sala a la que vamos a entrar -->
+      <div class="card text-center">
+        <p class="eyebrow mb-2">{{ fromInvite() ? 'Te han invitado a' : 'Entras en la sala' }}</p>
+        <p class="text-3xl font-black text-white tracking-[0.3em]">{{ roomCode() }}</p>
+      </div>
+
+      <div>
+        <label for="join-name" class="block text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+          Tu nombre
+        </label>
+        <input
+          id="join-name"
+          type="text"
+          class="input-field"
+          placeholder="¿Cómo te llaman?"
+          [value]="name()"
+          (input)="onNameInput($event)"
+          (keyup.enter)="joinRoom()"
+          maxlength="20"
+          autocomplete="nickname"
+          autocapitalize="words"
+          autofocus
+          aria-describedby="join-name-hint">
+        <p id="join-name-hint" class="text-gray-600 text-xs mt-1">
+          Entre 2 y 20 caracteres. Debe ser único en la sala.
+        </p>
+      </div>
+
+      @if (errorMsg()) {
+        <div class="alert-error animate-shake" role="alert">
+          ⚠️ {{ errorMsg() }}
+        </div>
+      }
+
       <button
         class="btn-primary"
         [disabled]="!nameValid() || !codeValid() || loading()"

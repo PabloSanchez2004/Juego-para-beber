@@ -71,23 +71,101 @@ public sealed class Room
     // ── Operaciones atómicas ───────────────────────────────────────────────
 
     /// <summary>
-    /// Intenta añadir un jugador. Devuelve false si la sala está llena,
-    /// cerrada, o el nombre ya existe.
+    /// Intenta añadir un jugador y explica por qué se rechaza.
+    /// El primero en entrar (quien crea la sala) queda como anfitrión.
     /// </summary>
-    public bool TryAddPlayer(Player player)
+    public JoinRejection AddPlayer(Player player)
     {
         lock (_lock)
         {
-            if (_phase == GamePhase.Closed) return false;
-            if (_players.ContainsKey(player.PlayerId)) return false;
-            if (_players.Count >= MaxPlayers) return false;
+            if (_phase == GamePhase.Closed) return JoinRejection.RoomClosed;
+            if (_players.ContainsKey(player.PlayerId)) return JoinRejection.AlreadyJoined;
+            if (_players.Count >= MaxPlayers) return JoinRejection.RoomFull;
             if (_players.Values.Any(p => p.Name.Equals(player.Name, StringComparison.OrdinalIgnoreCase)))
-                return false;
+                return JoinRejection.NameTaken;
+
+            // Quien crea la sala manda: es el único que puede empezar y expulsar.
+            player.IsAdmin = _players.IsEmpty;
 
             _players[player.PlayerId] = player;
             _lastActivity = DateTimeOffset.UtcNow;
+            EnsureAdmin();
+            return JoinRejection.None;
+        }
+    }
+
+    /// <summary>Azúcar retrocompatible sobre <see cref="AddPlayer"/>.</summary>
+    public bool TryAddPlayer(Player player) => AddPlayer(player) == JoinRejection.None;
+
+    /// <summary>
+    /// True si el nombre ya lo usa otro jugador de la sala (sin distinguir mayúsculas).
+    /// </summary>
+    public bool IsNameTaken(string name) =>
+        _players.Values.Any(p => p.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>PlayerId del anfitrión actual, o null si la sala está vacía.</summary>
+    public string? AdminPlayerId =>
+        _players.Values.FirstOrDefault(p => p.IsAdmin)?.PlayerId;
+
+    /// <summary>True si ese jugador es el anfitrión.</summary>
+    public bool IsAdmin(string playerId) =>
+        _players.TryGetValue(playerId, out var p) && p.IsAdmin;
+
+    /// <summary>
+    /// El anfitrión expulsa a otro jugador. Solo desde el lobby: a mitad de partida
+    /// sacar a alguien descuadraría el ranking y el recuento de estimaciones.
+    /// </summary>
+    public KickRejection TryKickPlayer(string adminPlayerId, string targetPlayerId, out Player? kicked)
+    {
+        lock (_lock)
+        {
+            kicked = null;
+
+            if (!IsAdmin(adminPlayerId)) return KickRejection.NotAdmin;
+            if (_phase != GamePhase.Lobby) return KickRejection.NotInLobby;
+            if (adminPlayerId == targetPlayerId) return KickRejection.CannotKickSelf;
+            if (!_players.TryRemove(targetPlayerId, out var target)) return KickRejection.TargetNotFound;
+
+            kicked = target;
+            _lastActivity = DateTimeOffset.UtcNow;
+            EnsureAdmin();
+            return KickRejection.None;
+        }
+    }
+
+    /// <summary>
+    /// Saca a un jugador por decisión propia (salir de la sala).
+    /// Devuelve true si estaba dentro.
+    /// </summary>
+    public bool RemovePlayer(string playerId)
+    {
+        lock (_lock)
+        {
+            if (!_players.TryRemove(playerId, out _)) return false;
+
+            _lastActivity = DateTimeOffset.UtcNow;
+            EnsureAdmin();
             return true;
         }
+    }
+
+    /// <summary>
+    /// Garantiza que siempre haya exactamente un anfitrión. Si el actual se fue,
+    /// promociona al jugador conectado más antiguo por nombre (criterio estable).
+    /// Debe llamarse bajo _lock.
+    /// </summary>
+    private void EnsureAdmin()
+    {
+        var admins = _players.Values.Where(p => p.IsAdmin).ToList();
+        if (admins.Count == 1) return;
+
+        foreach (var p in admins)
+            p.IsAdmin = false;
+
+        var heir = _players.Values.Where(p => p.IsConnected).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault()
+                   ?? _players.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+
+        if (heir is not null) heir.IsAdmin = true;
     }
 
     /// <summary>
@@ -170,6 +248,8 @@ public sealed class Room
 
             foreach (var id in timedOut)
                 _players.TryRemove(id, out _);
+
+            if (timedOut.Count > 0) EnsureAdmin();
 
             return timedOut;
         }
@@ -502,6 +582,7 @@ public sealed class Room
                 RoundNumber = _roundNumber,
                 CurrentQuestion = _currentQuestion,
                 RedactorPlayerId = _redactorPlayerId,
+                AdminPlayerId = _players.Values.FirstOrDefault(p => p.IsAdmin)?.PlayerId,
                 Players = players.AsReadOnly(),
                 LastResult = _lastResult,
                 MaxRounds = MaxRounds,

@@ -29,6 +29,15 @@ import { GamePhase } from './models/game.models';
         </div>
       }
 
+      <!-- Expulsado por el anfitrión -->
+      @if (kickedMessage) {
+        <div class="fixed top-0 left-0 right-0 z-[60] bg-red-600 text-white
+                    text-center py-3 px-4 text-sm font-semibold shadow-elevated"
+             role="alert">
+          🚫 {{ kickedMessage }}
+        </div>
+      }
+
       <router-outlet />
     </div>
   `,
@@ -36,8 +45,10 @@ import { GamePhase } from './models/game.models';
 export class AppComponent implements OnInit, OnDestroy {
   isReconnecting = false;
   connectionFailed = false;
+  kickedMessage = '';
 
   private subs = new Subscription();
+  private kickedTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private roomService: RoomService,
@@ -67,10 +78,21 @@ export class AppComponent implements OnInit, OnDestroy {
         this.connectionFailed = status === 'failed';
       })
     );
+
+    // Nos ha echado el anfitrión: fuera de la sala y aviso visible.
+    this.subs.add(
+      this.roomService.kicked$.subscribe(reason => {
+        this.kickedMessage = reason;
+        this.router.navigate(['/']);
+        clearTimeout(this.kickedTimer);
+        this.kickedTimer = setTimeout(() => (this.kickedMessage = ''), 6000);
+      })
+    );
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+    clearTimeout(this.kickedTimer);
   }
 
   private setupServiceWorkerUpdates(): void {

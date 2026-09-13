@@ -1,0 +1,176 @@
+<!--
+  Ceremonia final a pantalla completa. Bloquea la vista de resultados normal:
+  fija a 100vw/100vh, fondo opaco y sin scroll. Diseño mobile-first.
+-->
+<div class="reveal-overlay safe-top safe-bottom" role="dialog" aria-modal="true"
+     aria-label="Clasificación final de la partida">
+
+  <!-- ── Fase 1: la respuesta correcta, sola en el centro ── -->
+  @if (phase() === 'answer') {
+    <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+      <p class="eyebrow reveal-item">Última pregunta</p>
+
+      <p class="text-slate-300 text-base leading-snug mt-3 max-w-xs reveal-item"
+         style="animation-delay: 0.2s">
+        {{ question }}
+      </p>
+
+      <div class="mt-10 reveal-item" style="animation-delay: 0.6s">
+        <p class="eyebrow mb-3">La respuesta era</p>
+        <p class="answer-number">{{ correctAnswer | number:'1.0-4' }}</p>
+        @if (answerSource) {
+          <p class="text-slate-500 text-xs mt-4 truncate max-w-[16rem] mx-auto">
+            Fuente: {{ answerSource }}
+          </p>
+        }
+      </div>
+
+      <p class="text-slate-500 text-sm mt-12 animate-pulse reveal-item" style="animation-delay: 1.4s">
+        Preparando la clasificación...
+      </p>
+    </div>
+  }
+
+  <!-- ── Fases 2-4: cuenta atrás de puestos y leaderboard ── -->
+  @if (phase() !== 'answer') {
+    <!-- Cabecera -->
+    <header class="px-5 pt-6 pb-4 text-center shrink-0">
+      @if (done()) {
+        <p class="text-4xl reveal-item" aria-hidden="true">🏆</p>
+        <h2 class="text-2xl font-extrabold text-white tracking-tight mt-1 reveal-item">
+          Clasificación final
+        </h2>
+        <p class="text-slate-500 text-xs mt-1">
+          {{ maxRounds }} {{ maxRounds === 1 ? 'ronda' : 'rondas' }} · {{ roomCode }}
+        </p>
+      } @else {
+        <p class="eyebrow">Clasificación final</p>
+        <p class="text-white font-extrabold text-3xl tabular-nums mt-1" aria-live="polite">
+          Puesto {{ currentPlace() }}º
+        </p>
+        <p class="text-slate-500 text-xs mt-1">
+          {{ revealedCount() }} de {{ total() }} revelados
+        </p>
+      }
+    </header>
+
+    <!--
+      Las filas se pintan en orden de leaderboard (campeón arriba) pero solo
+      entran en el DOM cuando les toca. Con justify-end la pila crece hacia
+      arriba: el último puesto aparece abajo y el campeón cierra en lo alto.
+    -->
+    <div
+      class="reveal-list"
+      [class.justify-end]="!done()"
+      [class.justify-center]="done()"
+      role="list"
+      aria-label="Puestos de la clasificación">
+
+      <ng-container *ngFor="let row of leaderboard(); let i = index; trackBy: trackPodium">
+        @if (isRevealed(i)) {
+          <div
+            class="reveal-item"
+            [class.champion-entrance]="isChampion(row)"
+            role="listitem"
+            [attr.aria-label]="row.place + 'º puesto: ' + row.player.name + ', ' + row.player.score + ' puntos'">
+
+            <article
+              class="podium-row rounded-3xl border shadow-card"
+              [class.podium-compact]="compact()"
+              [ngClass]="{
+                'is-best border-gold-400/40': row.outcome === 'best',
+                'border-red-500/40': row.outcome === 'worst',
+                'border-white/5': row.outcome === 'mid'
+              }">
+
+              <!-- Barra de puntuación: se llena en la fase de leaderboard -->
+              <div
+                class="podium-bar-fill"
+                [ngClass]="{
+                  'bar-best': row.outcome === 'best',
+                  'bar-worst': row.outcome === 'worst',
+                  'bar-mid': row.outcome === 'mid'
+                }"
+                [style.width.%]="barsFilled() ? row.barPercent : 0"
+                [style.transition-delay]="(i * 0.12) + 's'"
+                aria-hidden="true">
+              </div>
+
+              <div class="podium-content">
+                <span class="podium-emoji" aria-hidden="true">{{ row.emoji }}</span>
+
+                <div class="flex-1 min-w-0">
+                  <p class="podium-name font-bold text-white truncate" [class.text-lg]="!compact()">
+                    {{ row.player.name }}
+                    <span *ngIf="isMe(row.player.playerId)" class="text-slate-500 font-medium text-sm">· tú</span>
+                  </p>
+                  @if (!compact()) {
+                    <p class="text-slate-400 text-xs mt-0.5 leading-snug">{{ row.comment }}</p>
+                  }
+                  <p *ngIf="isChampion(row)" class="text-gold-300 text-xs font-bold mt-1 tracking-wide">
+                    🏆 CAMPEÓN
+                  </p>
+                </div>
+
+                <div class="text-right shrink-0">
+                  <p class="text-white font-extrabold tabular-nums leading-none"
+                     [class.text-2xl]="!compact()"
+                     [class.text-lg]="compact()">
+                    {{ row.player.score }}
+                  </p>
+                  <p class="text-slate-500 text-[10px] uppercase tracking-wider mt-0.5">pts</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        }
+      </ng-container>
+    </div>
+
+    <!-- Pie: reglas de tragos y salida -->
+    <footer class="px-5 pb-6 pt-3 shrink-0">
+      @if (done()) {
+        <div class="card mb-4 reveal-item">
+          @if (isTie) {
+            <p class="text-slate-200 text-sm leading-relaxed text-center">
+              Empate total. Decidid entre todos si bebéis o si esto queda en tablas.
+            </p>
+          } @else {
+            <div class="space-y-2.5">
+              <div class="flex gap-3 items-start">
+                <span class="badge-gold shrink-0">🎯 Elige quién bebe</span>
+                <p class="text-slate-200 text-sm leading-snug">
+                  <span class="text-gold-300 font-semibold">{{ bestNames }}</span>
+                  gana la partida y señala a la víctima.
+                </p>
+              </div>
+              @if (worstNames) {
+                <div class="flex gap-3 items-start">
+                  <span class="badge-red shrink-0">{{ alcoholFree ? '🧃' : '🍺' }} Bebe</span>
+                  <p class="text-slate-200 text-sm leading-snug">
+                    <span class="text-red-300 font-semibold">{{ worstNames }}</span>
+                    cierra la clasificación: te toca beber.
+                  </p>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <button
+          class="btn-primary reveal-item"
+          (click)="onFinish()"
+          aria-label="Terminar y volver al inicio">
+          Terminar partida
+        </button>
+      } @else {
+        <button
+          class="w-full py-3 text-slate-500 hover:text-slate-300 text-sm font-semibold transition-colors"
+          (click)="skip()"
+          aria-label="Saltar la animación y ver la clasificación">
+          Saltar animación →
+        </button>
+      }
+    </footer>
+  }
+</div>

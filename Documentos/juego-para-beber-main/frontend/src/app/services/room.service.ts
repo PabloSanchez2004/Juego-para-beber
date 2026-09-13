@@ -40,11 +40,14 @@ export class RoomService implements OnDestroy {
   private readonly _gameState$ = new BehaviorSubject<GameStateDto | null>(null);
   private readonly _error$ = new Subject<string>();
   private readonly _guessAcknowledged$ = new Subject<void>();
+  private readonly _kicked$ = new Subject<string>();
 
   readonly connectionStatus$: Observable<ConnectionStatus> = this._connectionStatus$.asObservable();
   readonly gameState$: Observable<GameStateDto | null> = this._gameState$.asObservable();
   readonly error$: Observable<string> = this._error$.asObservable();
   readonly guessAcknowledged$: Observable<void> = this._guessAcknowledged$.asObservable();
+  /** El anfitrión ha expulsado a este cliente de la sala. */
+  readonly kicked$: Observable<string> = this._kicked$.asObservable();
 
   // ── Estado local ───────────────────────────────────────────────────────
 
@@ -168,6 +171,21 @@ export class RoomService implements OnDestroy {
     }
   }
 
+  /**
+   * Comprueba si el código corresponde a una sala viva. Se usa en el paso
+   * «introduce el código» para no pedir el nombre de una sala que no existe.
+   */
+  async roomExists(code: string): Promise<boolean> {
+    await this.ensureConnected();
+    return await this._hub!.invoke<boolean>('RoomExists', code.trim().toUpperCase());
+  }
+
+  /** Expulsa a un jugador del lobby. Solo funciona si eres el anfitrión. */
+  async kickPlayer(targetPlayerId: string): Promise<void> {
+    await this.ensureConnected();
+    await this._hub!.invoke('KickPlayer', targetPlayerId);
+  }
+
   async startGame(maxRounds: number = 10): Promise<void> {
     await this.ensureConnected();
     const rounds = Math.min(20, Math.max(1, Math.round(maxRounds) || 10));
@@ -192,6 +210,17 @@ export class RoomService implements OnDestroy {
   async nextRound(): Promise<void> {
     await this.ensureConnected();
     await this._hub!.invoke('NextRound');
+  }
+
+  /**
+   * Olvida la sesión guardada sin avisar al servidor. Se usa cuando el jugador
+   * abre un enlace de invitación a una sala distinta: sin esto la reconexión
+   * automática lo devolvería a la sala anterior.
+   */
+  forgetSession(): void {
+    this._localPlayer = null;
+    this._gameState$.next(null);
+    this.clearStoredSession();
   }
 
   async leaveRoom(): Promise<void> {
@@ -271,6 +300,18 @@ export class RoomService implements OnDestroy {
 
     this._hub.on('PlayerReconnected', (playerName: string) => {
       console.info(`[Aproximados] ${playerName} reconectado.`);
+    });
+
+    this._hub.on('PlayerKicked', (playerName: string) => {
+      console.info(`[Aproximados] ${playerName} fue expulsado por el anfitrión.`);
+    });
+
+    // Nos han echado: olvidar la sesión para que no intentemos reengancharnos.
+    this._hub.on('Kicked', (reason: string) => {
+      this._gameState$.next(null);
+      this._localPlayer = null;
+      this.clearStoredSession();
+      this._kicked$.next(reason || 'El anfitrión te ha sacado de la sala.');
     });
 
     this._hub.on('RoomClosed', (reason: string) => {
@@ -445,6 +486,7 @@ function normalizeGameState(raw: unknown): GameStateDto | null {
     roundNumber: Number(src['roundNumber'] ?? src['RoundNumber'] ?? 0),
     currentQuestion: (src['currentQuestion'] ?? src['CurrentQuestion'] ?? null) as string | null,
     redactorPlayerId: (src['redactorPlayerId'] ?? src['RedactorPlayerId'] ?? null) as string | null,
+    adminPlayerId: (src['adminPlayerId'] ?? src['AdminPlayerId'] ?? null) as string | null,
     players: playersRaw.map(p => ({
       playerId: String(p['playerId'] ?? p['PlayerId'] ?? ''),
       name: String(p['name'] ?? p['Name'] ?? ''),
@@ -454,6 +496,7 @@ function normalizeGameState(raw: unknown): GameStateDto | null {
       isConnected: Boolean(p['isConnected'] ?? p['IsConnected'] ?? true),
       alcoholFree: Boolean(p['alcoholFree'] ?? p['AlcoholFree'] ?? false),
       guess: (p['guess'] ?? p['Guess'] ?? null) as number | null,
+      isAdmin: Boolean(p['isAdmin'] ?? p['IsAdmin'] ?? false),
     })),
     lastResult: (src['lastResult'] ?? src['LastResult'] ?? null) as GameStateDto['lastResult'],
     maxRounds: Number(src['maxRounds'] ?? src['MaxRounds'] ?? 10),

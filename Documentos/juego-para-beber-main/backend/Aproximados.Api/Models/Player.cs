@@ -23,6 +23,13 @@ public sealed class Player
     /// </summary>
     public string PlayerId { get; init; } = Guid.NewGuid().ToString("N");
 
+    /// <summary>
+    /// Anfitrión de la sala: el jugador que la creó. Solo él puede iniciar la
+    /// partida y expulsar a otros. Si abandona, <see cref="Room"/> promociona al
+    /// siguiente para que la sala no quede huérfana.
+    /// </summary>
+    public bool IsAdmin { get; set; }
+
     // ── Estado de ronda ────────────────────────────────────────────────────
 
     /// <summary>Estimación enviada en la ronda actual. Null = no enviada aún.</summary>
@@ -83,7 +90,8 @@ public sealed class Player
             DrinksOwed,
             IsConnected,
             AlcoholFree,
-            revealGuess ? Guess : null
+            revealGuess ? Guess : null,
+            IsAdmin
         );
     }
 }
@@ -97,5 +105,6 @@ public sealed record PlayerPublicDto(
     int DrinksOwed,
     bool IsConnected,
     bool AlcoholFree,
-    double? Guess
+    double? Guess,
+    bool IsAdmin
 );

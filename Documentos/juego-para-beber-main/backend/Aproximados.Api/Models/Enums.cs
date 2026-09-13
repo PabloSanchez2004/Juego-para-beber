@@ -32,3 +32,44 @@ public enum PlayerRole
     /// <summary>Envía una estimación numérica.</summary>
     Estimator
 }
+
+/// <summary>
+/// Motivo por el que una sala acepta o rechaza a un jugador.
+/// Permite dar un mensaje concreto en lugar de un «no se pudo unir» genérico.
+/// </summary>
+public enum JoinRejection
+{
+    /// <summary>Admitido.</summary>
+    None,
+
+    /// <summary>La sala ya se cerró.</summary>
+    RoomClosed,
+
+    /// <summary>Se alcanzó el máximo de jugadores.</summary>
+    RoomFull,
+
+    /// <summary>Otro jugador activo ya usa ese nombre.</summary>
+    NameTaken,
+
+    /// <summary>Ese PlayerId ya tiene asiento en la sala.</summary>
+    AlreadyJoined
+}
+
+/// <summary>Resultado de un intento de expulsión por parte del anfitrión.</summary>
+public enum KickRejection
+{
+    /// <summary>Expulsado.</summary>
+    None,
+
+    /// <summary>Quien lo pide no es el anfitrión.</summary>
+    NotAdmin,
+
+    /// <summary>Solo se puede expulsar desde el lobby.</summary>
+    NotInLobby,
+
+    /// <summary>El objetivo no está en la sala.</summary>
+    TargetNotFound,
+
+    /// <summary>El anfitrión no puede expulsarse a sí mismo.</summary>
+    CannotKickSelf
+}

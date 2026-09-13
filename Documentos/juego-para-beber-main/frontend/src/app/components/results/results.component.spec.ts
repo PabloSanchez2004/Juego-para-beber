@@ -45,10 +45,11 @@ const mockState: GameStateDto = {
   roundNumber: 1,
   currentQuestion: '¿Cuántos km tiene la Tierra de diámetro?',
   redactorPlayerId: 'p1',
+  adminPlayerId: 'p1',
   players: [
-    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 10, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null },
-    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 110, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: 12742 },
-    { playerId: 'p3', name: 'Carlos', role: 'Estimator', score: 82, drinksOwed: 2, isConnected: true, alcoholFree: false, guess: 15000 },
+    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 10, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: true },
+    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 110, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: 12742, isAdmin: false },
+    { playerId: 'p3', name: 'Carlos', role: 'Estimator', score: 82, drinksOwed: 2, isConnected: true, alcoholFree: false, guess: 15000, isAdmin: false },
   ],
   lastResult: mockResult,
   maxRounds: 5,
@@ -217,7 +218,7 @@ describe('ResultsComponent', () => {
     expect(component.finalStandings()).toEqual([]);
   });
 
-  it('should show final standings with comments and drink rules on the last round', () => {
+  it('should build the final standings with comments and drink rules on the last round', () => {
     gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
     fixture.detectChanges();
 
@@ -229,38 +230,35 @@ describe('ResultsComponent', () => {
     expect(component.finalBestNames()).toBe('Bob');
     expect(component.finalWorstNames()).toBe('Ana');
     expect(component.finalIsTie()).toBeFalse();
+  });
+
+  it('podium rows go from worst to best, with bars relative to the top score', () => {
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
+    fixture.detectChanges();
+
+    const podium = component.podiumRows();
+    expect(podium[0].player.name).toBe('Ana');
+    expect(podium[podium.length - 1].player.name).toBe('Bob');
+    expect(podium[podium.length - 1].barPercent).toBe(100);
+    expect(podium[0].barPercent).toBeCloseTo((10 / 110) * 100, 5);
+  });
+
+  it('the last round hands the screen over to the full-screen ceremony', () => {
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
+    fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('Clasificación final');
-    expect(el.textContent).toContain('Elige quién bebe');
-    expect(el.textContent).toContain('Bebe');
-    expect(el.querySelector('.podium')).toBeTruthy();
-    expect(component.podiumRows()[0].player.name).toBe('Ana');
-    expect(component.podiumRows()[component.podiumRows().length - 1].player.name).toBe('Bob');
-    expect(component.podiumRows()[component.podiumRows().length - 1].barPercent).toBe(100);
+    expect(el.querySelector('app-final-reveal')).toBeTruthy();
+    expect(el.querySelector('.reveal-overlay')).toBeTruthy();
+    // La vista de resultados normal queda fuera: la ceremonia la sustituye.
+    expect(el.textContent).not.toContain('Ranking de la ronda');
+    expect(el.textContent).not.toContain('Siguiente ronda');
   });
 
-  it('podium bar percent is relative to the highest score', () => {
-    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
-    fixture.detectChanges();
-    const ana = component.podiumRows().find(r => r.player.name === 'Ana');
-    expect(ana?.barPercent).toBeCloseTo((10 / 110) * 100, 5);
-  });
-
-  it('staggers each podium row by 1 second and starts bars at 0 width', () => {
-    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
-    fixture.detectChanges();
-
-    const rows = fixture.nativeElement.querySelectorAll('.podium-row') as NodeListOf<HTMLElement>;
-    expect(rows.length).toBe(3);
-    expect(rows[0].style.animationDelay).toBe('0ms');
-    expect(rows[1].style.animationDelay).toBe('1000ms');
-    expect(rows[2].style.animationDelay).toBe('2000ms');
-
-    const bars = fixture.nativeElement.querySelectorAll('.podium-bar-fill') as NodeListOf<HTMLElement>;
-    expect(component.podiumArmed()).toBeFalse();
-    expect(bars[0].style.width).toBe('0%');
-    expect(bars[2].style.transitionDelay).toBe('2000ms');
+  it('keeps the normal results view on intermediate rounds', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('app-final-reveal')).toBeNull();
+    expect(el.textContent).toContain('Ranking de la ronda');
   });
 
   it('should leave the room when finishing the game', async () => {

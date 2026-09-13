@@ -8,11 +8,13 @@ namespace Aproximados.Api.Hubs;
 /// Hub SignalR principal del juego Aproximados.
 ///
 /// Protocolo cliente→servidor (métodos invocables):
+///   RoomExists(code)                      → bool (para validar el código antes de pedir el nombre)
 ///   CreateRoom(name, alcoholFree, maxRounds) → RoomCreated | Error
 ///   JoinRoom(code, name, alcoholFree)     → JoinedRoom | Error
 ///   RejoinRoom(roomId, playerId)          → ReconnectedRoom | Error
 ///   Reconnect(code, playerId)             → alias de RejoinRoom
-///   StartGame(maxRounds)                  → GameStateUpdated (broadcast)
+///   StartGame(maxRounds)                  → GameStateUpdated (broadcast). Solo el anfitrión.
+///   KickPlayer(targetPlayerId)            → Kicked (al expulsado) + GameStateUpdated. Solo el anfitrión.
 ///   SubmitQuestion(question)              → GameStateUpdated (broadcast) + lanza pre-cálculo IA en 2º plano
 ///   SubmitGuess(guess)                    → GuessAcknowledged | GameStateUpdated (la última recoge el pre-cálculo)
 ///   RequestResults()                      → GameStateUpdated (broadcast, fuerza cierre ronda)
@@ -28,6 +30,8 @@ namespace Aproximados.Api.Hubs;
 ///   Error(message)                        → solo al cliente que causó el error
 ///   PlayerDisconnected(playerName)        → broadcast
 ///   PlayerReconnected(playerName)         → broadcast
+///   PlayerKicked(playerName)              → broadcast al resto de la sala
+///   Kicked(reason)                        → solo al jugador expulsado
 ///   RoomClosed(reason)                    → broadcast
 /// </summary>
 public sealed class GameHub : Hub
@@ -78,6 +82,19 @@ public sealed class GameHub : Hub
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    // ── Validar código antes de pedir el nombre ────────────────────────────
+
+    /// <summary>
+    /// Comprueba si una sala existe y sigue admitiendo gente. El cliente lo usa en
+    /// el paso «introduce el código» para no pedir el nombre de una sala fantasma.
+    /// </summary>
+    public Task<bool> RoomExists(string code)
+    {
+        var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
+        var room = _roomManager.GetRoom(normalized);
+        return Task.FromResult(room is not null && room.Phase != GamePhase.Closed);
     }
 
     // ── Crear sala ─────────────────────────────────────────────────────────
@@ -160,9 +177,10 @@ public sealed class GameHub : Hub
 
         var player = NewPlayer(name, alcoholFree, playerId);
 
-        if (!room.TryAddPlayer(player))
+        var rejection = room.AddPlayer(player);
+        if (rejection != JoinRejection.None)
         {
-            await SendError("La sala está llena o ya existe un jugador con ese nombre.");
+            await SendError(DescribeRejection(rejection, player.Name));
             return;
         }
 
@@ -233,6 +251,12 @@ public sealed class GameHub : Hub
         var (room, player) = await GetRoomAndPlayerOrError();
         if (room is null || player is null) return;
 
+        if (!room.IsAdmin(player.PlayerId))
+        {
+            await SendError("Solo el anfitrión puede empezar la partida.");
+            return;
+        }
+
         // Si el cliente no manda un valor útil, usamos el que el host eligió al crear la sala.
         if (maxRounds < 1)
             maxRounds = room.MaxRounds;
@@ -246,6 +270,43 @@ public sealed class GameHub : Hub
 
         await BroadcastState(room, excludePlayerId: null);
         _logger.LogInformation("Juego iniciado en sala {Code}, {Rounds} rondas", room.Code, maxRounds);
+    }
+
+    // ── Expulsar jugador (solo anfitrión, solo en lobby) ───────────────────
+
+    public async Task KickPlayer(string targetPlayerId)
+    {
+        var (room, player) = await GetRoomAndPlayerOrError();
+        if (room is null || player is null) return;
+
+        var rejection = room.TryKickPlayer(player.PlayerId, targetPlayerId, out var kicked);
+
+        if (rejection != KickRejection.None || kicked is null)
+        {
+            await SendError(rejection switch
+            {
+                KickRejection.NotAdmin => "Solo el anfitrión puede expulsar jugadores.",
+                KickRejection.NotInLobby => "Solo puedes expulsar a alguien antes de empezar la partida.",
+                KickRejection.CannotKickSelf => "No puedes expulsarte a ti mismo. Usa «Salir».",
+                _ => "Ese jugador ya no está en la sala.",
+            });
+            return;
+        }
+
+        // Avisar al expulsado antes de sacarlo del grupo para que reciba el evento.
+        if (!string.IsNullOrEmpty(kicked.ConnectionId))
+        {
+            await Clients.Client(kicked.ConnectionId)
+                .SendAsync("Kicked", "El anfitrión te ha sacado de la sala.");
+            await Groups.RemoveFromGroupAsync(kicked.ConnectionId, room.Code);
+        }
+
+        await Clients.Group(room.Code).SendAsync("PlayerKicked", kicked.Name);
+        await BroadcastState(room, excludePlayerId: null);
+
+        _logger.LogInformation(
+            "Anfitrión {Admin} expulsó a {Target} de la sala {Code}",
+            player.Name, kicked.Name, room.Code);
     }
 
     // ── Enviar pregunta (Redactor) ─────────────────────────────────────────
@@ -369,8 +430,8 @@ public sealed class GameHub : Hub
             return;
         }
 
-        // Solo el Redactor o el primer jugador (host) puede forzar el cierre
-        var isHost = room.Players.OrderBy(p => p.Name).First().PlayerId == player.PlayerId;
+        // Solo el Redactor o el anfitrión pueden forzar el cierre
+        var isHost = room.IsAdmin(player.PlayerId);
         var isRedactor = player.PlayerId == room.RedactorPlayerId;
 
         if (!isHost && !isRedactor)
@@ -409,7 +470,22 @@ public sealed class GameHub : Hub
         var roomCode = Context.Items[RoomCodeKey] as string;
         if (roomCode is null) return;
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
+        var playerId = Context.Items[PlayerIdKey] as string;
+        var room = _roomManager.GetRoom(roomCode);
+
+        // Salida voluntaria: libera el asiento de verdad (a diferencia de una
+        // desconexión, que lo reserva). Así el nombre vuelve a estar libre y,
+        // si se iba el anfitrión, la sala promociona a otro.
+        if (room is not null && playerId is not null && room.RemovePlayer(playerId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
+            await BroadcastState(room, excludePlayerId: null);
+        }
+        else
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
+        }
+
         Context.Items.Remove(RoomCodeKey);
         Context.Items.Remove(PlayerIdKey);
     }
@@ -567,6 +643,16 @@ public sealed class GameHub : Hub
                 ? Guid.NewGuid().ToString("N")
                 : playerId.Trim()
         };
+
+    /// <summary>Traduce el motivo del rechazo a un mensaje accionable para el jugador.</summary>
+    private static string DescribeRejection(JoinRejection rejection, string name) => rejection switch
+    {
+        JoinRejection.NameTaken => $"Ya hay alguien llamado «{name}» en la sala. Elige otro nombre.",
+        JoinRejection.RoomFull => $"La sala está completa ({Room.MaxPlayers} jugadores).",
+        JoinRejection.RoomClosed => "Esa sala ya se ha cerrado.",
+        JoinRejection.AlreadyJoined => "Ya estás dentro de esta sala.",
+        _ => "No se pudo unir a la sala. Inténtalo de nuevo.",
+    };
 
     private static bool ValidateName(string name, out string error)
     {

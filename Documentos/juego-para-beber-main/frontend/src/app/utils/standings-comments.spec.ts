@@ -4,7 +4,7 @@ import { buildFinalStandings, namesOf } from './standings-comments';
 function player(id: string, name: string, score: number): PlayerPublicDto {
   return {
     playerId: id, name, role: 'Estimator', score, drinksOwed: 0,
-    isConnected: true, alcoholFree: false, guess: null,
+    isConnected: true, alcoholFree: false, guess: null, isAdmin: false,
   };
 }
 

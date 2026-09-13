@@ -22,6 +22,8 @@ export interface PlayerPublicDto {
   alcoholFree: boolean;
   /** Null durante CollectingGuesses para otros jugadores */
   guess: number | null;
+  /** Anfitrión: el único que puede empezar la partida y expulsar. */
+  isAdmin: boolean;
 }
 
 export interface PlayerRoundResult {
@@ -54,6 +56,8 @@ export interface GameStateDto {
   roundNumber: number;
   currentQuestion: string | null;
   redactorPlayerId: string | null;
+  /** PlayerId del anfitrión de la sala. */
+  adminPlayerId: string | null;
   players: PlayerPublicDto[];
   lastResult: RoundResult | null;
   maxRounds: number;

@@ -65,6 +65,10 @@ public sealed class GameStateDto
     public int RoundNumber { get; init; }
     public string? CurrentQuestion { get; init; }
     public string? RedactorPlayerId { get; init; }
+
+    /// <summary>Anfitrión de la sala: el único que puede empezar la partida y expulsar.</summary>
+    public string? AdminPlayerId { get; init; }
+
     public IReadOnlyList<PlayerPublicDto> Players { get; init; } = [];
     public RoundResult? LastResult { get; init; }
     public int MaxRounds { get; init; }

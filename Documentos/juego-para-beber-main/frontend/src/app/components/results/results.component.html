@@ -4,140 +4,160 @@
   @if (state(); as s) {
     @if (result(); as r) {
 
-      <!-- ── Header ─────────────────────────────────────────────────── -->
-      <header class="flex items-end justify-between mb-5">
-        <div>
-          <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
-          <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
-        </div>
-        <span class="badge-neutral">{{ s.roomCode }}</span>
-      </header>
+      <!--
+        Última ronda: la ceremonia a pantalla completa sustituye por completo a la
+        vista de resultados normal (incluida la respuesta correcta, que revela ella
+        misma en su primera fase).
+      -->
+      @if (isLastRound()) {
+        <app-final-reveal
+          [rows]="podiumRows()"
+          [correctAnswer]="r.correctAnswer"
+          [question]="r.question"
+          [answerSource]="r.answerSource"
+          [roomCode]="s.roomCode"
+          [maxRounds]="s.maxRounds"
+          [myPlayerId]="myPlayerId()"
+          [bestNames]="finalBestNames()"
+          [worstNames]="finalWorstNames()"
+          [isTie]="finalIsTie()"
+          [alcoholFree]="s.isAlcoholFreeRoom"
+          (finish)="finishGame()" />
+      } @else {
 
-      <!-- ── Pregunta y respuesta correcta ──────────────────────────── -->
-      <section class="card-elevated mb-6 animate-slide-up">
-        <p class="eyebrow mb-2">La pregunta</p>
-        <p class="text-slate-100 font-semibold text-lg leading-snug">
-          {{ r.question }}
-        </p>
+        <!-- ── Header ─────────────────────────────────────────────────── -->
+        <header class="flex items-end justify-between mb-5">
+          <div>
+            <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
+            <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
+          </div>
+          <span class="badge-neutral">{{ s.roomCode }}</span>
+        </header>
 
-        <div class="mt-5 pt-5 border-t border-white/5 flex items-end justify-between gap-4">
-          <div class="min-w-0">
-            <p class="eyebrow mb-1">Respuesta correcta</p>
-            <p class="text-white font-extrabold text-4xl tracking-tight tabular-nums leading-none">
-              {{ r.correctAnswer | number:'1.0-4' }}
-            </p>
-            @if (r.answerSource) {
-              <p class="text-slate-500 text-xs mt-2 truncate">Fuente: {{ r.answerSource }}</p>
+        <!-- ── Pregunta y respuesta correcta ──────────────────────────── -->
+        <section class="card-elevated mb-6 animate-slide-up">
+          <p class="eyebrow mb-2">La pregunta</p>
+          <p class="text-slate-100 font-semibold text-lg leading-snug">
+            {{ r.question }}
+          </p>
+
+          <div class="mt-5 pt-5 border-t border-white/5 flex items-end justify-between gap-4">
+            <div class="min-w-0">
+              <p class="eyebrow mb-1">Respuesta correcta</p>
+              <p class="text-white font-extrabold text-4xl tracking-tight tabular-nums leading-none">
+                {{ r.correctAnswer | number:'1.0-4' }}
+              </p>
+              @if (r.answerSource) {
+                <p class="text-slate-500 text-xs mt-2 truncate">Fuente: {{ r.answerSource }}</p>
+              }
+            </div>
+            @if (redactorName()) {
+              <div class="text-right shrink-0">
+                <p class="eyebrow mb-1">Redactor</p>
+                <p class="text-slate-300 text-sm font-medium">✍️ {{ redactorName() }}</p>
+              </div>
             }
           </div>
-          @if (redactorName()) {
-            <div class="text-right shrink-0">
-              <p class="eyebrow mb-1">Redactor</p>
-              <p class="text-slate-300 text-sm font-medium">✍️ {{ redactorName() }}</p>
-            </div>
+        </section>
+
+        <!-- ── Ranking de la ronda ────────────────────────────────────── -->
+        <section class="mb-6">
+          <div class="flex items-baseline justify-between mb-3 px-1">
+            <h3 class="eyebrow">Ranking de la ronda</h3>
+            <span class="text-slate-500 text-xs">
+              {{ ranking().length }} {{ ranking().length === 1 ? 'estimador' : 'estimadores' }}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            @for (row of rows(); track row.entry.playerId) {
+              <article
+                class="relative rounded-3xl border p-4 shadow-card transition-colors animate-slide-up"
+                [class.delay-1]="$index === 1"
+                [class.delay-2]="$index === 2"
+                [class.delay-3]="$index === 3"
+                [class.delay-4]="$index >= 4"
+                [ngClass]="{
+                  'bg-gradient-to-br from-gold-400/15 via-ink-900 to-ink-900 border-gold-400/40': row.outcome === 'winner',
+                  'bg-gradient-to-br from-red-500/15 via-ink-900 to-ink-900 border-red-500/40': row.outcome === 'loser',
+                  'bg-ink-900 border-white/5': row.outcome === 'neutral'
+                }"
+                [attr.aria-label]="row.entry.playerName + ', posición ' + row.entry.rank">
+
+                <!-- Indicador «tú»: línea fina lateral, sin anillos brillantes -->
+                @if (isMe(row.entry.playerId)) {
+                  <span class="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-brand-400" aria-hidden="true"></span>
+                }
+
+                <div class="flex items-center gap-4">
+                  <!-- Posición -->
+                  <div
+                    class="w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 tabular-nums"
+                    [ngClass]="{
+                      'bg-gold-400 text-ink-950 shadow-elevated': row.outcome === 'winner',
+                      'bg-red-500 text-white shadow-elevated': row.outcome === 'loser',
+                      'bg-white/5 text-slate-300 border border-white/10': row.outcome === 'neutral'
+                    }">
+                    {{ row.entry.rank }}
+                  </div>
+
+                  <!-- Nombre y estimación -->
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-white text-base truncate flex items-center gap-2">
+                      <span class="truncate">{{ row.entry.playerName }}</span>
+                      @if (isMe(row.entry.playerId)) {
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-brand-300
+                                     bg-brand-500/15 rounded-md px-1.5 py-0.5 shrink-0">tú</span>
+                      }
+                    </p>
+                    <p class="text-slate-400 text-sm mt-0.5">
+                      Estimó
+                      <span class="text-slate-100 font-semibold tabular-nums">{{ row.entry.guess | number:'1.0-4' }}</span>
+                    </p>
+                  </div>
+
+                  <!-- Desviación -->
+                  <div class="text-right shrink-0">
+                    <p class="eyebrow">Desvío</p>
+                    <p class="font-bold text-sm tabular-nums mt-0.5" [ngClass]="errorTone(row.entry.relativeErrorPercent)">
+                      {{ formatError(row.entry.relativeErrorPercent) }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Badge de consecuencia -->
+                @if (row.outcome === 'winner') {
+                  <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
+                    <span class="badge-gold text-sm px-3.5 py-1.5 animate-pop-in">{{ winnerBadge() }}</span>
+                    <span class="text-gold-300/80 text-xs font-medium text-right">
+                      {{ isSoloEstimator() ? 'Único estimador · gana la ronda' : 'El que más se acercó' }}
+                    </span>
+                  </div>
+                } @else if (row.outcome === 'loser') {
+                  <div class="mt-4 pt-3 border-t border-red-500/20 flex items-center justify-between gap-3">
+                    <span class="badge-red text-sm px-3.5 py-1.5 animate-pop-in">{{ loserBadge() }}</span>
+                    <span class="text-red-300/80 text-xs font-medium text-right">El que más se alejó</span>
+                  </div>
+                }
+              </article>
+            }
+          </div>
+
+          <!-- Partida de 2: explicar por qué no hay perdedor -->
+          @if (isSoloEstimator()) {
+            <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
+              Con dos jugadores solo adivina uno: <span class="text-slate-300 font-medium">{{ soloWinnerName() }}</span>
+              se lleva la ronda y reparte {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
+              El Redactor no bebe por esta ronda.
+            </p>
+          } @else if (losers().length === 0 && ranking().length > 1) {
+            <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
+              Empate total: todos se acercaron lo mismo. Nadie bebe esta ronda.
+            </p>
           }
-        </div>
-      </section>
+        </section>
 
-      <!-- ── Ranking de la ronda ────────────────────────────────────── -->
-      <section class="mb-6">
-        <div class="flex items-baseline justify-between mb-3 px-1">
-          <h3 class="eyebrow">Ranking de la ronda</h3>
-          <span class="text-slate-500 text-xs">
-            {{ ranking().length }} {{ ranking().length === 1 ? 'estimador' : 'estimadores' }}
-          </span>
-        </div>
-
-        <div class="space-y-3">
-          @for (row of rows(); track row.entry.playerId) {
-            <article
-              class="relative rounded-3xl border p-4 shadow-card transition-colors animate-slide-up"
-              [class.delay-1]="$index === 1"
-              [class.delay-2]="$index === 2"
-              [class.delay-3]="$index === 3"
-              [class.delay-4]="$index >= 4"
-              [ngClass]="{
-                'bg-gradient-to-br from-gold-400/15 via-ink-900 to-ink-900 border-gold-400/40': row.outcome === 'winner',
-                'bg-gradient-to-br from-red-500/15 via-ink-900 to-ink-900 border-red-500/40': row.outcome === 'loser',
-                'bg-ink-900 border-white/5': row.outcome === 'neutral'
-              }"
-              [attr.aria-label]="row.entry.playerName + ', posición ' + row.entry.rank">
-
-              <!-- Indicador «tú»: línea fina lateral, sin anillos brillantes -->
-              @if (isMe(row.entry.playerId)) {
-                <span class="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-brand-400" aria-hidden="true"></span>
-              }
-
-              <div class="flex items-center gap-4">
-                <!-- Posición -->
-                <div
-                  class="w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 tabular-nums"
-                  [ngClass]="{
-                    'bg-gold-400 text-ink-950 shadow-elevated': row.outcome === 'winner',
-                    'bg-red-500 text-white shadow-elevated': row.outcome === 'loser',
-                    'bg-white/5 text-slate-300 border border-white/10': row.outcome === 'neutral'
-                  }">
-                  {{ row.entry.rank }}
-                </div>
-
-                <!-- Nombre y estimación -->
-                <div class="flex-1 min-w-0">
-                  <p class="font-bold text-white text-base truncate flex items-center gap-2">
-                    <span class="truncate">{{ row.entry.playerName }}</span>
-                    @if (isMe(row.entry.playerId)) {
-                      <span class="text-[10px] font-semibold uppercase tracking-wider text-brand-300
-                                   bg-brand-500/15 rounded-md px-1.5 py-0.5 shrink-0">tú</span>
-                    }
-                  </p>
-                  <p class="text-slate-400 text-sm mt-0.5">
-                    Estimó
-                    <span class="text-slate-100 font-semibold tabular-nums">{{ row.entry.guess | number:'1.0-4' }}</span>
-                  </p>
-                </div>
-
-                <!-- Desviación -->
-                <div class="text-right shrink-0">
-                  <p class="eyebrow">Desvío</p>
-                  <p class="font-bold text-sm tabular-nums mt-0.5" [ngClass]="errorTone(row.entry.relativeErrorPercent)">
-                    {{ formatError(row.entry.relativeErrorPercent) }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Badge de consecuencia -->
-              @if (row.outcome === 'winner') {
-                <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
-                  <span class="badge-gold text-sm px-3.5 py-1.5 animate-pop-in">{{ winnerBadge() }}</span>
-                  <span class="text-gold-300/80 text-xs font-medium text-right">
-                    {{ isSoloEstimator() ? 'Único estimador · gana la ronda' : 'El que más se acercó' }}
-                  </span>
-                </div>
-              } @else if (row.outcome === 'loser') {
-                <div class="mt-4 pt-3 border-t border-red-500/20 flex items-center justify-between gap-3">
-                  <span class="badge-red text-sm px-3.5 py-1.5 animate-pop-in">{{ loserBadge() }}</span>
-                  <span class="text-red-300/80 text-xs font-medium text-right">El que más se alejó</span>
-                </div>
-              }
-            </article>
-          }
-        </div>
-
-        <!-- Partida de 2: explicar por qué no hay perdedor -->
-        @if (isSoloEstimator()) {
-          <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
-            Con dos jugadores solo adivina uno: <span class="text-slate-300 font-medium">{{ soloWinnerName() }}</span>
-            se lleva la ronda y reparte {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
-            El Redactor no bebe por esta ronda.
-          </p>
-        } @else if (losers().length === 0 && ranking().length > 1) {
-          <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
-            Empate total: todos se acercaron lo mismo. Nadie bebe esta ronda.
-          </p>
-        }
-      </section>
-
-      <!-- ── Marcador acumulado (solo entre rondas) ─────────────────── -->
-      @if (!isLastRound()) {
+        <!-- ── Marcador acumulado ─────────────────────────────────────── -->
         <section class="card mb-6 animate-slide-up delay-2">
           <div class="flex items-baseline justify-between mb-4">
             <h3 class="eyebrow">Marcador</h3>
@@ -177,116 +197,16 @@
             }
           </ul>
         </section>
-      }
 
-      <!-- ── Clasificación final (última ronda) ─────────────────────── -->
-      @if (isLastRound()) {
-        <section class="mb-6 animate-slide-up delay-2" aria-label="Clasificación final">
-          <div class="text-center mb-4">
-            <p class="text-4xl mb-2">🏆</p>
-            <h3 class="text-2xl font-extrabold text-white tracking-tight">Clasificación final</h3>
-            <p class="text-slate-400 text-sm mt-1">{{ s.maxRounds }} {{ s.maxRounds === 1 ? 'ronda' : 'rondas' }} · {{ s.roomCode }}</p>
+        <!-- ── Error ──────────────────────────────────────────────────── -->
+        @if (errorMsg()) {
+          <div class="alert-error mb-4 animate-shake" role="alert">
+            ⚠️ {{ errorMsg() }}
           </div>
+        }
 
-          <div class="card-elevated mb-4">
-            @if (finalIsTie()) {
-              <p class="text-slate-200 text-sm leading-relaxed text-center">
-                Empate total. Decidid entre todos si bebéis o si esto queda en tablas.
-              </p>
-            } @else {
-              <div class="space-y-3">
-                <div class="flex gap-3 items-start">
-                  <span class="badge-gold shrink-0">🎯 Elige quién bebe</span>
-                  <p class="text-slate-200 text-sm leading-snug">
-                    <span class="text-gold-300 font-semibold">{{ finalBestNames() }}</span>
-                    gana la partida y señala a la víctima.
-                  </p>
-                </div>
-                @if (finalWorstNames()) {
-                  <div class="flex gap-3 items-start">
-                    <span class="badge-red shrink-0">🍺 Bebe</span>
-                    <p class="text-slate-200 text-sm leading-snug">
-                      <span class="text-red-300 font-semibold">{{ finalWorstNames() }}</span>
-                      cierra la clasificación: te toca beber.
-                    </p>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-
-          <div class="podium space-y-3" role="list" aria-label="Podio final, de peor a mejor">
-            <article
-              *ngFor="let row of podiumRows(); let i = index; trackBy: trackPodium"
-              class="podium-row relative overflow-hidden rounded-3xl border shadow-card"
-              [style.animation-delay.ms]="i * 1000"
-              [ngClass]="{
-                'border-gold-400/40': row.outcome === 'best',
-                'border-red-500/40': row.outcome === 'worst',
-                'border-white/5': row.outcome === 'mid'
-              }"
-              role="listitem"
-              [attr.aria-label]="row.player.name + ', puesto ' + row.place + ', ' + row.player.score + ' puntos'">
-
-              <div
-                class="podium-bar-fill"
-                [ngClass]="{
-                  'podium-bar-gold': row.outcome === 'best',
-                  'podium-bar-red': row.outcome === 'worst',
-                  'podium-bar-mid': row.outcome === 'mid'
-                }"
-                [style.width.%]="podiumArmed() ? row.barPercent : 0"
-                [style.transition-delay.ms]="i * 1000">
-              </div>
-
-              <div class="relative z-10 flex items-center gap-3 p-4">
-                <span class="text-3xl w-10 text-center shrink-0" aria-hidden="true">{{ row.emoji }}</span>
-                <div class="flex-1 min-w-0">
-                  <p class="font-bold text-white text-base truncate">
-                    {{ row.player.name }}
-                    <span *ngIf="isMe(row.player.playerId)" class="text-slate-500 font-medium">· tú</span>
-                  </p>
-                  <p class="text-slate-400 text-xs mt-0.5 leading-snug">{{ row.comment }}</p>
-                  <p *ngIf="row.outcome === 'best'" class="text-gold-300 text-xs font-semibold mt-1">🎯 Elige quién bebe</p>
-                  <p *ngIf="row.outcome === 'worst'" class="text-red-300 text-xs font-semibold mt-1">🍺 Te toca beber</p>
-                </div>
-                <div class="text-right shrink-0">
-                  <p class="text-white font-extrabold text-xl tabular-nums leading-none">{{ row.player.score }}</p>
-                  <p class="text-slate-500 text-xs mt-1">pts</p>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-      }
-
-      <!-- ── Error ──────────────────────────────────────────────────── -->
-      @if (errorMsg()) {
-        <div class="alert-error mb-4 animate-shake" role="alert">
-          ⚠️ {{ errorMsg() }}
-        </div>
-      }
-
-      <!-- ── CTA: siguiente ronda / fin ─────────────────────────────── -->
-      <div class="mt-auto">
-        @if (isLastRound()) {
-          <button
-            class="btn-primary podium-reveal"
-            [style.animation-delay.ms]="podiumRows().length * 1000"
-            [disabled]="loading()"
-            (click)="finishGame()"
-            aria-label="Terminar y volver al inicio">
-            @if (loading()) {
-              <span class="flex items-center justify-center gap-2">
-                <span class="loading-dot" style="animation-delay:0ms"></span>
-                <span class="loading-dot" style="animation-delay:150ms"></span>
-                <span class="loading-dot" style="animation-delay:300ms"></span>
-              </span>
-            } @else {
-              Terminar partida
-            }
-          </button>
-        } @else {
+        <!-- ── CTA: siguiente ronda ───────────────────────────────────── -->
+        <div class="mt-auto">
           <button
             class="btn-primary"
             [disabled]="loading()"
@@ -302,8 +222,8 @@
               Siguiente ronda →
             }
           </button>
-        }
-      </div>
+        </div>
+      }
 
     } @else {
       <!-- Sin resultado aún -->

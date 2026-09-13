@@ -11,9 +11,10 @@ const mockState: GameStateDto = {
   roundNumber: 1,
   currentQuestion: null,
   redactorPlayerId: 'p1',
+  adminPlayerId: 'p1',
   players: [
-    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null },
-    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null },
+    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: true },
+    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: false },
   ],
   lastResult: null,
   maxRounds: 5,

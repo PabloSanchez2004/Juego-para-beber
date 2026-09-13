@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
+import { FinalRevealComponent } from '../final-reveal/final-reveal.component';
 import { Subscription } from 'rxjs';
 import { RoomService } from '../../services/room.service';
 import {
@@ -41,7 +42,7 @@ export interface PodiumRow {
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, DecimalPipe],
+  imports: [CommonModule, DecimalPipe, FinalRevealComponent],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
 })
@@ -135,9 +136,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
       }));
   });
 
-  /** Dispara el llenado de barras un frame después de pintar (la transition necesita partir de 0). */
-  podiumArmed = signal(false);
-
   finalBestNames = computed(() => namesOf(this.finalStandings(), 'best'));
   finalWorstNames = computed(() => namesOf(this.finalStandings(), 'worst'));
   finalIsTie = computed(() =>
@@ -168,7 +166,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
           return;
         }
         this.state.set(s);
-        this.armPodium(s.roundNumber >= s.maxRounds);
       })
     );
 
@@ -182,16 +179,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
-    clearTimeout(this.podiumArmTimer);
-  }
-
-  private podiumArmTimer: ReturnType<typeof setTimeout> | undefined;
-
-  private armPodium(isFinal: boolean): void {
-    clearTimeout(this.podiumArmTimer);
-    this.podiumArmed.set(false);
-    if (!isFinal) return;
-    this.podiumArmTimer = setTimeout(() => this.podiumArmed.set(true), 50);
   }
 
   async nextRound(): Promise<void> {

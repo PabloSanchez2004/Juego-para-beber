@@ -13,4 +13,13 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
+  <!--
+    Tests/ usa xunit, que no es dependencia de la API. Compilarlos aquí rompía
+    `dotnet build` del proyecto web; viven fuera de la compilación hasta que
+    tengan su propio proyecto de test.
+  -->
+  <ItemGroup>
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+
 </Project>

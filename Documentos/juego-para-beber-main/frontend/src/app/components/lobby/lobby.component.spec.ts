@@ -11,9 +11,10 @@ const mockState: GameStateDto = {
   roundNumber: 0,
   currentQuestion: null,
   redactorPlayerId: null,
+  adminPlayerId: 'p1',
   players: [
-    { playerId: 'p1', name: 'Ana', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null },
-    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null },
+    { playerId: 'p1', name: 'Ana', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: true },
+    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: false },
   ],
   lastResult: null,
   maxRounds: 10,
@@ -28,14 +29,20 @@ describe('LobbyComponent', () => {
   let mockRoomService: jasmine.SpyObj<RoomService>;
   let gameState$: BehaviorSubject<GameStateDto | null>;
 
-  beforeEach(async () => {
+  /** Monta el lobby como si fuésemos `playerId` (p1 = anfitrión, p2 = invitado). */
+  async function createAs(playerId: string): Promise<void> {
+    TestBed.resetTestingModule();
     gameState$ = new BehaviorSubject<GameStateDto | null>(mockState);
 
-    mockRoomService = jasmine.createSpyObj('RoomService', ['startGame', 'leaveRoom'], {
-      gameState$: gameState$.asObservable(),
-      error$: new Subject<string>().asObservable(),
-      localPlayer: { playerId: 'p1', roomCode: 'ABCD', name: 'Ana', alcoholFree: false },
-    });
+    mockRoomService = jasmine.createSpyObj(
+      'RoomService',
+      ['startGame', 'leaveRoom', 'kickPlayer'],
+      {
+        gameState$: gameState$.asObservable(),
+        error$: new Subject<string>().asObservable(),
+        localPlayer: { playerId, roomCode: 'ABCD', name: playerId === 'p1' ? 'Ana' : 'Bob', alcoholFree: false },
+      },
+    );
 
     await TestBed.configureTestingModule({
       imports: [LobbyComponent],
@@ -48,6 +55,10 @@ describe('LobbyComponent', () => {
     fixture = TestBed.createComponent(LobbyComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    await createAs('p1');
   });
 
   it('should create', () => {
@@ -98,5 +109,73 @@ describe('LobbyComponent', () => {
     fixture.detectChanges();
     await component.startGame();
     expect(mockRoomService.startGame).not.toHaveBeenCalled();
+  });
+
+  // ── Anfitrión ────────────────────────────────────────────────────────
+
+  it('the room creator is the admin and sees the start button', () => {
+    expect(component.isAdmin()).toBeTrue();
+    expect(component.adminName()).toBe('Ana');
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('¡Empezar!');
+  });
+
+  it('a guest is not admin and cannot start the game', async () => {
+    await createAs('p2');
+
+    expect(component.isAdmin()).toBeFalse();
+    expect(component.canStart()).toBeFalse();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).not.toContain('¡Empezar!');
+    expect(el.textContent).toContain('decide cuándo empezar');
+
+    await component.startGame();
+    expect(mockRoomService.startGame).not.toHaveBeenCalled();
+  });
+
+  // ── Expulsar ─────────────────────────────────────────────────────────
+
+  it('the admin can kick others but never itself', () => {
+    expect(component.canKick(mockState.players[1])).toBeTrue();
+    expect(component.canKick(mockState.players[0])).toBeFalse();
+  });
+
+  it('a guest sees no kick buttons', async () => {
+    await createAs('p2');
+    expect(component.canKick(mockState.players[0])).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[aria-label^="Expulsar a"]')).toBeNull();
+  });
+
+  it('kicking asks for confirmation before calling the hub', async () => {
+    mockRoomService.kickPlayer.and.returnValue(Promise.resolve());
+
+    component.askKick(mockState.players[1]);
+    expect(component.isConfirmingKick(mockState.players[1])).toBeTrue();
+    expect(mockRoomService.kickPlayer).not.toHaveBeenCalled();
+
+    await component.confirmKick(mockState.players[1]);
+    expect(mockRoomService.kickPlayer).toHaveBeenCalledWith('p2');
+    expect(component.isConfirmingKick(mockState.players[1])).toBeFalse();
+  });
+
+  it('cancelling a kick leaves the player alone', () => {
+    component.askKick(mockState.players[1]);
+    component.cancelKick();
+    expect(component.confirmKickId()).toBe('');
+    expect(mockRoomService.kickPlayer).not.toHaveBeenCalled();
+  });
+
+  it('renders a kick button per other player for the admin', () => {
+    const buttons = fixture.nativeElement.querySelectorAll('[aria-label^="Expulsar a"]');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].getAttribute('aria-label')).toBe('Expulsar a Bob');
+  });
+
+  // ── Invitación ───────────────────────────────────────────────────────
+
+  it('builds a direct invite link with the room code', () => {
+    expect(component.inviteLink()).toBe(`${window.location.origin}/join/ABCD`);
+    expect(fixture.nativeElement.textContent).toContain('Copiar enlace de invitación');
   });
 });
