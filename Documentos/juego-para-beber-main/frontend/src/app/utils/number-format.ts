@@ -86,7 +86,7 @@ export function describeResolvedGuess(display: string, magnitude: Magnitude): st
   const coeff = parseGuessCoefficient(display);
   if (coeff === null) return '';
 
-  if (magnitude.id === 'units') return formatEsNumber(resolved);
+  if (magnitude.id === 'units') return describeSpokenNumber(resolved);
 
   const abs = Math.abs(coeff);
   const label = abs === 1
@@ -94,6 +94,33 @@ export function describeResolvedGuess(display: string, magnitude: Magnitude): st
     : magnitude.label.toLowerCase();
 
   return `${formatEsNumber(coeff)} ${label}  ·  ${formatEsNumber(resolved)}`;
+}
+
+/**
+ * Lectura drunk-proof: 7000000 → «7.000.000 (7 millones)».
+ * Por debajo de mil solo muestra el número agrupado.
+ */
+export function describeSpokenNumber(value: number): string {
+  if (!isFinite(value)) return '';
+  const formatted = formatEsNumber(value);
+  const spoken = spokenScale(value);
+  return spoken ? `${formatted} (${spoken})` : formatted;
+}
+
+function spokenScale(value: number): string | null {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) {
+    return `${formatEsNumber(value / 1_000_000_000)} mil millones`;
+  }
+  if (abs >= 1_000_000) {
+    const n = value / 1_000_000;
+    const word = Math.abs(n) === 1 ? 'millón' : 'millones';
+    return `${formatEsNumber(n)} ${word}`;
+  }
+  if (abs >= 1_000) {
+    return `${formatEsNumber(value / 1_000)} mil`;
+  }
+  return null;
 }
 
 function singularLabel(id: MagnitudeId): string {

@@ -12,13 +12,9 @@ import { Subscription } from 'rxjs';
 import { RoomService } from '../../services/room.service';
 import { GameStateDto } from '../../models/game.models';
 import {
-  MAGNITUDES,
-  Magnitude,
-  MagnitudeId,
-  describeResolvedGuess,
+  describeSpokenNumber,
   formatEsNumber,
   formatGuessTyping,
-  magnitudeOf,
   resolveGuess,
 } from '../../utils/number-format';
 
@@ -39,9 +35,6 @@ export class GameComponent implements OnInit, OnDestroy {
   // Formularios
   question = signal('');
   guessInput = signal('');
-  magnitudeId = signal<MagnitudeId>('units');
-
-  readonly magnitudes = MAGNITUDES;
 
   myPlayerId = computed(() => this.roomService.localPlayer?.playerId ?? '');
 
@@ -84,20 +77,17 @@ export class GameComponent implements OnInit, OnDestroy {
     this.question().trim().length >= 5 && this.question().trim().length <= 300
   );
 
-  selectedMagnitude = computed(() => magnitudeOf(this.magnitudeId()));
-
-  resolvedGuess = computed(() =>
-    resolveGuess(this.guessInput(), this.selectedMagnitude().factor)
-  );
+  resolvedGuess = computed(() => resolveGuess(this.guessInput(), 1));
 
   guessValid = computed(() => {
     const val = this.resolvedGuess();
     return val !== null;
   });
 
-  guessPreview = computed(() =>
-    describeResolvedGuess(this.guessInput(), this.selectedMagnitude())
-  );
+  guessPreview = computed(() => {
+    const val = this.resolvedGuess();
+    return val === null ? '' : describeSpokenNumber(val);
+  });
 
   formattedResolvedGuess = computed(() => {
     const val = this.resolvedGuess();
@@ -132,7 +122,6 @@ export class GameComponent implements OnInit, OnDestroy {
           this.questionSent.set(false);
           this.guessSent.set(false);
           this.guessInput.set('');
-          this.magnitudeId.set('units');
           this.loading.set(false);
         }
 
@@ -221,14 +210,6 @@ export class GameComponent implements OnInit, OnDestroy {
     const formatted = formatGuessTyping(el.value);
     this.guessInput.set(formatted);
     el.value = formatted;
-  }
-
-  selectMagnitude(id: MagnitudeId): void {
-    this.magnitudeId.set(id);
-  }
-
-  isMagnitude(m: Magnitude): boolean {
-    return this.magnitudeId() === m.id;
   }
 
   trackByPlayerId(_: number, p: { playerId: string }): string {

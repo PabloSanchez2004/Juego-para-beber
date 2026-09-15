@@ -16,7 +16,8 @@
   overflow: hidden;
   overscroll-behavior: contain;
   background:
-    radial-gradient(120% 80% at 50% 0%, rgba(91, 134, 238, 0.12), transparent 60%),
+    radial-gradient(120% 80% at 50% 0%, rgba(163, 230, 53, 0.12), transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, rgba(147, 51, 234, 0.16), transparent 55%),
     #070b16;
 }
 
@@ -27,7 +28,7 @@
   letter-spacing: -0.03em;
   color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 40px rgba(91, 134, 238, 0.35);
+  text-shadow: 0 0 40px rgba(163, 230, 53, 0.35);
 }
 
 // min-height 0 para que nunca desborde el overlay. El scroll es solo válvula
@@ -77,7 +78,11 @@
 
 // El oro del campeón sí necesita un halo propio.
 .podium-row.is-best {
-  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15), 0 18px 40px -20px rgba(251, 191, 36, 0.4);
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.3), 0 18px 40px -20px rgba(251, 191, 36, 0.4);
+}
+
+.podium-row.is-worst {
+  background: rgba(127, 29, 29, 0.55);
 }
 
 .podium-content {
@@ -123,7 +128,7 @@
 }
 
 .bar-mid {
-  background: linear-gradient(90deg, rgba(91, 134, 238, 0.22), rgba(91, 134, 238, 0.05));
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.22), rgba(168, 85, 247, 0.05));
 }
 
 // Sin animaciones para quien las ha desactivado en el sistema.

@@ -22,14 +22,14 @@ input[type="range"] {
     height: 24px;
     border-radius: 50%;
     background: #ffffff;
-    border: 2px solid #5b86ee; // brand-500
+    border: 2px solid #a3e635; // lime-400
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     transition: box-shadow 0.15s, transform 0.15s;
 
     &:hover {
       transform: scale(1.05);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(91, 134, 238, 0.15);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(163, 230, 53, 0.2);
     }
   }
 
@@ -38,7 +38,7 @@ input[type="range"] {
     height: 24px;
     border-radius: 50%;
     background: #ffffff;
-    border: 2px solid #5b86ee;
+    border: 2px solid #a3e635;
     cursor: pointer;
   }
 }

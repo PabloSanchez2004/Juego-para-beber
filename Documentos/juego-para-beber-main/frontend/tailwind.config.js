@@ -15,12 +15,12 @@ module.exports = {
           700: '#25304f', // bordes marcados, hover
           600: '#33405f',
         },
-        // Acento de marca: azul suave. Se usa con moderación (CTA, foco).
+        // Acento de marca: lima neón (party game).
         brand: {
-          300: '#a3bcff',
-          400: '#7aa0f7',
-          500: '#5b86ee',
-          600: '#4a6fd2',
+          300: '#bef264',
+          400: '#a3e635',
+          500: '#84cc16',
+          600: '#65a30d',
         },
         // Semánticos del ranking
         gold: {
@@ -40,7 +40,7 @@ module.exports = {
         // Sombras suaves de elevación (sin glow)
         card: '0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px -14px rgba(0, 0, 0, 0.6)',
         elevated: '0 2px 4px rgba(0, 0, 0, 0.35), 0 20px 40px -20px rgba(0, 0, 0, 0.7)',
-        button: '0 6px 20px -8px rgba(91, 134, 238, 0.55)',
+        button: '0 0 18px rgba(163, 230, 53, 0.45)',
         'inset-top': 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
       },
       animation: {

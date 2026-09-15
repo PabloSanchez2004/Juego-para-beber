@@ -4,10 +4,10 @@
 @tailwind utilities;
 
 // ── Variables globales ────────────────────────────────────────────────────
-// Dark mode elegante: superficies azul-gris, acento azul suave, sin neón.
+// Party night: lima neón + morado eléctrico sobre fondo muy oscuro.
 :root {
-  --color-primary: #5b86ee;        // brand-500
-  --color-primary-hover: #7aa0f7;  // brand-400
+  --color-primary: #a3e635;        // lime-400
+  --color-primary-hover: #bef264;  // lime-300
   --color-bg: #0b1020;             // ink-950
   --color-surface: #121a2f;        // ink-900
   --color-surface-2: #1a2340;      // ink-800
@@ -27,11 +27,9 @@ html, body {
   padding: 0;
   background-color: var(--color-bg);
   // Luz ambiental muy sutil en la parte superior: da profundidad sin "glow"
-  background-image: radial-gradient(
-    900px 480px at 50% -120px,
-    rgba(91, 134, 238, 0.14),
-    transparent 65%
-  );
+  background-image:
+    radial-gradient(900px 480px at 50% -120px, rgba(163, 230, 53, 0.16), transparent 65%),
+    radial-gradient(700px 420px at 100% 110%, rgba(147, 51, 234, 0.18), transparent 60%);
   background-attachment: fixed;
   color: var(--color-text);
   font-family: 'Inter', system-ui, sans-serif;
@@ -55,25 +53,29 @@ html, body {
 
 // ── Componentes reutilizables ─────────────────────────────────────────────
 @layer components {
-  // Botón primario (acento de marca, texto blanco)
+  // Botón primario: lima neón, texto negro, resplandor
   .btn-primary {
-    @apply w-full py-4 px-6 rounded-2xl font-semibold text-lg text-white
-           bg-brand-500 hover:bg-brand-400 active:scale-[0.98]
-           shadow-button
+    @apply w-full py-4 px-6 rounded-2xl font-black text-lg text-black
+           bg-lime-400 hover:bg-lime-300 active:scale-95
+           shadow-[0_0_18px_rgba(163,230,53,0.45)]
            transition-all duration-150 ease-out
-           focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40
-           disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-lime-400/50
+           disabled:opacity-35 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100
            select-none;
+
+    .loading-dot {
+      @apply bg-black/80;
+    }
   }
 
-  // Botón secundario (superficie elevada, borde sutil)
+  // Botón secundario: gris muy oscuro + borde morado eléctrico
   .btn-secondary {
-    @apply w-full py-4 px-6 rounded-2xl font-semibold text-base text-slate-200
-           bg-ink-800 hover:bg-ink-700 active:scale-[0.98]
-           border border-white/10 hover:border-white/15
+    @apply w-full py-4 px-6 rounded-2xl font-bold text-base text-purple-400
+           bg-zinc-950 hover:bg-zinc-900 active:scale-95
+           border-2 border-purple-600 hover:border-purple-400 hover:text-purple-300
            transition-all duration-150 ease-out
-           focus:outline-none focus-visible:ring-4 focus-visible:ring-white/10
-           disabled:opacity-40 disabled:cursor-not-allowed
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-purple-500/30
+           disabled:opacity-35 disabled:cursor-not-allowed
            select-none;
   }
 
@@ -89,7 +91,7 @@ html, body {
     @apply w-full py-4 px-5 rounded-2xl text-xl font-semibold
            bg-ink-900 border border-white/10
            text-white placeholder-slate-500
-           focus:outline-none focus:border-brand-400/70 focus:ring-4 focus:ring-brand-400/15
+           focus:outline-none focus:border-lime-400/80 focus:ring-4 focus:ring-lime-400/20
            transition-all duration-150;
   }
 
@@ -131,7 +133,7 @@ html, body {
     @apply h-1.5 rounded-full bg-white/5 overflow-hidden;
 
     .progress-fill {
-      @apply h-full bg-brand-400 rounded-full transition-all duration-500;
+      @apply h-full bg-lime-400 rounded-full transition-all duration-500;
     }
   }
 
@@ -144,7 +146,7 @@ html, body {
     @apply badge bg-gold-400 text-ink-950;
   }
   .badge-red {
-    @apply badge bg-red-500 text-white;
+    @apply badge bg-red-600 text-white font-black;
   }
   .badge-neutral {
     @apply badge bg-white/5 text-slate-300 border border-white/10;

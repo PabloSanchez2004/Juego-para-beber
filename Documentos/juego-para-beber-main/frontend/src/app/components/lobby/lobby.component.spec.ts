@@ -117,7 +117,7 @@ describe('LobbyComponent', () => {
     expect(component.isAdmin()).toBeTrue();
     expect(component.adminName()).toBe('Ana');
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('¡Empezar!');
+    expect(el.textContent).toContain('¡EMPEZAR PARTIDA!');
   });
 
   it('a guest is not admin and cannot start the game', async () => {
@@ -127,8 +127,8 @@ describe('LobbyComponent', () => {
     expect(component.canStart()).toBeFalse();
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).not.toContain('¡Empezar!');
-    expect(el.textContent).toContain('decide cuándo empezar');
+    expect(el.textContent).not.toContain('¡EMPEZAR PARTIDA!');
+    expect(el.textContent).toContain('Esperando a que el Host le dé a empezar');
 
     await component.startGame();
     expect(mockRoomService.startGame).not.toHaveBeenCalled();

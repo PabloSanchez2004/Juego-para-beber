@@ -1,5 +1,5 @@
 <!-- Sala de espera -->
-<div class="min-h-screen flex flex-col px-4 py-8 animate-fade-in">
+<div class="min-h-screen flex flex-col px-4 pt-8 pb-40 safe-top animate-fade-in">
 
   @if (state(); as s) {
     <!-- Header -->
@@ -22,7 +22,7 @@
         Código de sala
       </p>
       <button
-        class="room-code block mx-auto cursor-pointer hover:border-brand-400/60 transition-all
+        class="room-code block mx-auto cursor-pointer hover:border-lime-400/60 transition-all
                active:scale-[0.98]"
         (click)="copyCode()"
         [attr.aria-label]="'Código de sala: ' + s.roomCode + '. Toca para copiar'"
@@ -59,14 +59,14 @@
         @for (player of players(); track trackByPlayerId($index, player)) {
           <div
             class="player-chip animate-slide-up"
-            [ngClass]="isMe(player) ? 'border-brand-400/50' : ''"
+            [ngClass]="isMe(player) ? 'border-lime-400/50' : ''"
             [class.opacity-50]="!player.isConnected">
 
             <!-- Avatar -->
             <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
                         flex-shrink-0"
                  [ngClass]="isMe(player)
-                   ? 'bg-brand-500 text-white'
+                   ? 'bg-lime-400 text-black'
                    : 'bg-white/5 text-slate-200 border border-white/10'">
               {{ player.name.charAt(0).toUpperCase() }}
             </div>
@@ -76,7 +76,7 @@
               <p class="font-semibold text-white truncate">
                 {{ player.name }}
                 @if (isMe(player)) {
-                  <span class="text-brand-300 text-xs ml-1">(tú)</span>
+                  <span class="text-lime-400 text-xs ml-1">(tú)</span>
                 }
                 @if (player.isAdmin) {
                   <span class="text-gold-300 text-xs ml-1" title="Anfitrión">👑</span>
@@ -92,15 +92,15 @@
               @if (isConfirmingKick(player)) {
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <button
-                    class="px-3 py-1.5 rounded-xl bg-red-500 text-white text-xs font-bold
+                    class="px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-black
                            active:scale-95 transition-transform"
                     (click)="confirmKick(player)"
                     [attr.aria-label]="'Confirmar expulsión de ' + player.name">
                     Expulsar
                   </button>
                   <button
-                    class="px-3 py-1.5 rounded-xl bg-white/5 text-slate-300 text-xs font-semibold
-                           border border-white/10 active:scale-95 transition-transform"
+                    class="px-3 py-1.5 rounded-xl bg-zinc-950 text-purple-400 text-xs font-semibold
+                           border-2 border-purple-600 active:scale-95 transition-transform"
                     (click)="cancelKick()"
                     aria-label="Cancelar expulsión">
                     No
@@ -136,38 +136,46 @@
       </div>
     }
 
-    <!-- Botón iniciar: solo lo ve el anfitrión -->
-    @if (isAdmin()) {
-      @if (canStart()) {
-        <button
-          class="btn-primary mt-auto"
-          [disabled]="loading()"
-          (click)="startGame()"
-          aria-label="Iniciar el juego">
-          @if (loading()) {
-            <span class="flex items-center justify-center gap-2">
-              <span class="loading-dot" style="animation-delay:0ms"></span>
-              <span class="loading-dot" style="animation-delay:150ms"></span>
-              <span class="loading-dot" style="animation-delay:300ms"></span>
-            </span>
-          } @else {
-            🎮 ¡Empezar!
-          }
-        </button>
-      } @else {
-        <div class="btn-muted mt-auto text-center">
-          Esperando jugadores (mínimo 2)...
-        </div>
-      }
-    } @else {
-      <div class="btn-muted mt-auto text-center">
-        @if (enoughPlayers()) {
-          ⏳ {{ adminName() || 'El anfitrión' }} decide cuándo empezar
+    <!-- CTA inferior fijo: el host arranca; el resto espera -->
+    <div class="fixed inset-x-0 bottom-0 z-20 px-4 pt-8 pb-4 safe-bottom
+                bg-gradient-to-t from-ink-950 from-55% to-transparent">
+      @if (isAdmin()) {
+        @if (canStart()) {
+          <button
+            class="w-full py-6 text-2xl font-black rounded-xl
+                   bg-lime-400 text-black
+                   shadow-[0_0_15px_rgba(163,230,53,0.5)]
+                   active:scale-95 transition-transform
+                   disabled:opacity-35 disabled:cursor-not-allowed disabled:active:scale-100"
+            [disabled]="loading()"
+            (click)="startGame()"
+            aria-label="Empezar partida">
+            @if (loading()) {
+              <span class="flex items-center justify-center gap-2">
+                <span class="loading-dot !bg-black/80" style="animation-delay:0ms"></span>
+                <span class="loading-dot !bg-black/80" style="animation-delay:150ms"></span>
+                <span class="loading-dot !bg-black/80" style="animation-delay:300ms"></span>
+              </span>
+            } @else {
+              ¡EMPEZAR PARTIDA! 🚀
+            }
+          </button>
         } @else {
-          Esperando jugadores (mínimo 2)...
+          <div class="w-full py-6 text-xl font-black rounded-xl text-center
+                      bg-zinc-950 border-2 border-purple-600/50 text-purple-300/70">
+            Esperando jugadores (mínimo 2)...
+          </div>
         }
-      </div>
-    }
+      } @else {
+        <p class="text-center text-xl font-black leading-snug animate-pulse text-white px-2">
+          @if (enoughPlayers()) {
+            Esperando a que el Host le dé a empezar...
+          } @else {
+            Esperando jugadores (mínimo 2)...
+          }
+        </p>
+      }
+    </div>
 
   } @else {
     <!-- Cargando -->

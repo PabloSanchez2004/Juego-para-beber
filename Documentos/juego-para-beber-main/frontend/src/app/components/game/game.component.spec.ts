@@ -96,11 +96,10 @@ describe('GameComponent', () => {
     expect(component.resolvedGuess()).toBe(1000);
   });
 
-  it('should treat 1 + millones as 1.000.000', () => {
-    component.guessInput.set('1');
-    component.selectMagnitude('millions');
-    expect(component.resolvedGuess()).toBe(1_000_000);
-    expect(component.guessPreview()).toContain('1.000.000');
+  it('should preview 7.000.000 as seven million', () => {
+    component.guessInput.set('7.000.000');
+    expect(component.resolvedGuess()).toBe(7_000_000);
+    expect(component.guessPreview()).toBe('7.000.000 (7 millones)');
   });
 
   it('should validate guess: comma as decimal separator', () => {

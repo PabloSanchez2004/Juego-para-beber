@@ -78,8 +78,8 @@
               class="podium-row rounded-3xl border shadow-card"
               [class.podium-compact]="compact()"
               [ngClass]="{
-                'is-best border-gold-400/40': row.outcome === 'best',
-                'border-red-500/40': row.outcome === 'worst',
+                'is-best border-gold-400/40 shadow-[0_0_10px_rgba(234,179,8,0.3)]': row.outcome === 'best',
+                'is-worst bg-red-900/50 border-red-500': row.outcome === 'worst',
                 'border-white/5': row.outcome === 'mid'
               }">
 
@@ -146,7 +146,7 @@
               </div>
               @if (worstNames) {
                 <div class="flex gap-3 items-start">
-                  <span class="badge-red shrink-0">{{ alcoholFree ? '🧃' : '🍺' }} Bebe</span>
+                  <span class="badge-red shrink-0 animate-pulse">{{ alcoholFree ? '🧃' : '🍺' }} Bebe</span>
                   <p class="text-slate-200 text-sm leading-snug">
                     <span class="text-red-300 font-semibold">{{ worstNames }}</span>
                     cierra la clasificación: te toca beber.

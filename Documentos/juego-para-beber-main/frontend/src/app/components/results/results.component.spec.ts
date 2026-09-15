@@ -190,6 +190,17 @@ describe('ResultsComponent', () => {
     expect(el.textContent).not.toContain('La IA opina');
   });
 
+  it('paints the loser card in aggressive red and the winner with gold glow', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const loser = el.querySelector('[aria-label="Carlos, posición 2"]') as HTMLElement;
+    const winner = el.querySelector('[aria-label="Bob, posición 1"]') as HTMLElement;
+
+    expect(loser.className).toContain('bg-red-900/50');
+    expect(loser.className).toContain('border-red-500');
+    expect(loser.querySelector('.badge-red')?.classList.contains('animate-pulse')).toBeTrue();
+    expect(winner.className).toContain('shadow-[0_0_10px_rgba(234,179,8,0.3)]');
+  });
+
   it('should resolve the redactor name', () => {
     expect(component.redactorName()).toBe('Ana');
     expect(component.isRedactor('p1')).toBeTrue();

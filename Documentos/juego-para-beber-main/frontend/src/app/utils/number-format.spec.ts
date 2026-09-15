@@ -1,5 +1,6 @@
 import {
   describeResolvedGuess,
+  describeSpokenNumber,
   formatGuessTyping,
   magnitudeOf,
   parseGuessCoefficient,
@@ -35,5 +36,12 @@ describe('number-format', () => {
 
   it('does not offer billones as a scale', () => {
     expect(magnitudeOf('trillions' as never).id).toBe('units');
+  });
+
+  it('describes large numbers in spoken Spanish', () => {
+    expect(describeSpokenNumber(7_000_000)).toBe('7.000.000 (7 millones)');
+    expect(describeSpokenNumber(1_000_000)).toBe('1.000.000 (1 millón)');
+    expect(describeSpokenNumber(1500)).toBe('1.500 (1,5 mil)');
+    expect(describeSpokenNumber(7)).toBe('7');
   });
 });
