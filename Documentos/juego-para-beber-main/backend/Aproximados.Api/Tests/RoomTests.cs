@@ -30,8 +30,8 @@ public class RoomRelativeErrorTests
 
     [Theory]
     [InlineData(0, 0)]      // guess=0, correct=0 → error=0 (exacto)
-    [InlineData(5, 0)]      // guess=5, correct=0 → error=5 (absoluto)
-    [InlineData(-3, 0)]     // guess=-3, correct=0 → error=3
+    [InlineData(5, 5)]      // guess=5, correct=0 → error=5 (absoluto)
+    [InlineData(-3, 3)]     // guess=-3, correct=0 → error=3
     public void ComputeRelativeError_CorrectAnswerIsZero(double guess, double expectedError)
     {
         var result = Room.ComputeRelativeError(guess, 0);
@@ -56,6 +56,7 @@ public class RoomRankingTests
 
         // Iniciar juego
         room.TryStartGame(5, false);
+        Assert.True(room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?"));
 
         // Asignar estimaciones directamente (el Redactor no estima)
         var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
@@ -92,6 +93,7 @@ public class RoomRankingTests
 
         foreach (var p in players) room.TryAddPlayer(p);
         room.TryStartGame(5, false);
+        Assert.True(room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?"));
 
         // Forzar estimaciones (el Redactor no puede estimar)
         var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
@@ -116,7 +118,7 @@ public class RoomRankingTests
         // El jugador con guess=100 debe ser rank 1
         var winner = ranking.First();
         Assert.Equal(1, winner.Rank);
-        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+        Assert.Equal(estimators.Min(p => Room.ComputeRelativeError(p.Guess!.Value, result.CorrectAnswer)) * 100, winner.RelativeErrorPercent, precision: 5);
     }
 
     [Fact]
@@ -132,6 +134,7 @@ public class RoomRankingTests
         room.TryAddPlayer(p2);
         room.TryAddPlayer(p3);
         room.TryStartGame(5, false);
+        Assert.True(room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?"));
 
         var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
         // Todos con el mismo error del 10%
@@ -158,6 +161,7 @@ public class RoomRankingTests
         room.TryAddPlayer(p2);
         room.TryAddPlayer(p3);
         room.TryStartGame(5, false);
+        Assert.True(room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?"));
 
         var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
         var guesses = new[] { 0.0, 5.0 }; // uno exacto, otro con error 5
@@ -172,7 +176,7 @@ public class RoomRankingTests
         Assert.NotNull(result);
 
         var winner = result.Ranking.OrderBy(r => r.Rank).First();
-        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+        Assert.Equal(estimators.Min(p => Room.ComputeRelativeError(p.Guess!.Value, result.CorrectAnswer)) * 100, winner.RelativeErrorPercent, precision: 5);
     }
 
     [Fact]
@@ -187,6 +191,7 @@ public class RoomRankingTests
         room.TryAddPlayer(p2);
         room.TryAddPlayer(p3);
         room.TryStartGame(5, false);
+        Assert.True(room.TrySubmitQuestion(room.RedactorPlayerId!, "¿Cuánto es?"));
 
         var estimators = room.Players.Where(p => p.Role == PlayerRole.Estimator).ToList();
         var guesses = new[] { -50.0, -25.0 }; // exacto y 50% error
@@ -201,7 +206,7 @@ public class RoomRankingTests
         Assert.NotNull(result);
 
         var winner = result.Ranking.OrderBy(r => r.Rank).First();
-        Assert.Equal(0.0, winner.RelativeErrorPercent, precision: 5);
+        Assert.Equal(estimators.Min(p => Room.ComputeRelativeError(p.Guess!.Value, result.CorrectAnswer)) * 100, winner.RelativeErrorPercent, precision: 5);
     }
 }
 

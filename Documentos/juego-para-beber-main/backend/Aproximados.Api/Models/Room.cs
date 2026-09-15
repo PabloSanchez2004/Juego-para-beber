@@ -10,6 +10,7 @@ namespace Aproximados.Api.Models;
 /// </summary>
 public sealed class Room
 {
+    internal SemaphoreSlim FinalizationGate { get; } = new(1, 1);
     // ── Constantes ─────────────────────────────────────────────────────────
 
     public const int MaxPlayers = 12;
@@ -338,7 +339,7 @@ public sealed class Room
     {
         lock (_lock)
         {
-            if (_phase != GamePhase.CollectingGuesses) return (false, false);
+            if (_phase != GamePhase.CollectingGuesses || !double.IsFinite(guess) || Math.Abs(guess) > 1e15) return (false, false);
             if (!_players.TryGetValue(playerId, out var player)) return (false, false);
             if (!IsEstimator(player)) return (false, false); // el Redactor no adivina
             if (player.Guess.HasValue) return (false, false); // ya envió
@@ -386,7 +387,7 @@ public sealed class Room
     {
         lock (_lock)
         {
-            if (_phase != GamePhase.CollectingGuesses) return null;
+            if (_phase != GamePhase.CollectingGuesses || !double.IsFinite(correctAnswer)) return null;
 
             var estimators = _players.Values
                 .Where(p => IsEstimator(p) && p.Guess.HasValue)
@@ -460,7 +461,7 @@ public sealed class Room
                 }
 
                 player.DrinksOwed += drinks;
-                player.Score += Math.Max(0, 100 - (int)Math.Round(ranked.First(x => x.Player.PlayerId == r.PlayerId).Error * 100));
+                player.Score += (int)Math.Max(0, 100 - Math.Min(100, Math.Round(ranked.First(x => x.Player.PlayerId == r.PlayerId).Error * 100)));
 
                 // Actualizar resultado con drinks
                 results[i] = r with { DrinksThisRound = drinks, PenaltyDescription = penalty };
@@ -650,7 +651,7 @@ public sealed class Room
             return Math.Min(Math.Abs(guess), 1_000_000);
         }
 
-        return Math.Abs(guess - correct) / Math.Abs(correct);
+        return Math.Min(Math.Abs(guess - correct) / Math.Abs(correct), 1e300);
     }
 }
 

@@ -68,6 +68,7 @@ export interface GameStateDto {
 
 /** Estado local del cliente (no viene del servidor) */
 export interface LocalPlayerState {
+  reconnectToken?: string;
   playerId: string;
   roomCode: string;
   name: string;

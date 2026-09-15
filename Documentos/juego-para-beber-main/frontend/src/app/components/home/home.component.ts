@@ -44,7 +44,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   // Validaciones
   nameValid = computed(() => this.name().trim().length >= 2 && this.name().trim().length <= 20);
-  codeValid = computed(() => this.roomCode().trim().length === 4);
+  codeValid = computed(() => /^[A-Z]{4}$/i.test(this.roomCode().trim()));
 
   private subs = new Subscription();
 
@@ -72,7 +72,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     // Si ya hay sesión activa, intentar reconectar
     if (this.roomService.localPlayer) {
       this.loading.set(true);
-      this.roomService.connect().catch(() => {
+      this.roomService.connect().catch(() => undefined).finally(() => {
         this.loading.set(false);
       });
     }

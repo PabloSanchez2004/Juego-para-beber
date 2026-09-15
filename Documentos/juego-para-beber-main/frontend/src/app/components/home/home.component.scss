@@ -1,44 +1,55 @@
-// Estilos específicos del componente Home
-// La mayoría de estilos vienen de Tailwind en el template
+:host{display:block}
+.home-shell{max-width:1180px;margin:auto;padding:28px 36px}
+.brand-bar,.board-top,.home-footer{display:flex;justify-content:space-between;align-items:center}
+.brand-bar{padding-bottom:24px;border-bottom:1px solid #34372e}
+.wordmark{font-size:23px;font-weight:850;letter-spacing:-1px;display:flex;align-items:center;gap:10px}
+.brand-symbol{display:inline-grid;place-items:center;background:#d8f36a;color:#191c16;width:34px;height:34px;border-radius:9px;font-size:34px}
+.edition,.board-top,.home-footer,.play-note{font-size:11px;letter-spacing:1px;color:#a8ad9f}
+.home-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:65px;align-items:center;padding:65px 0}
+.hero-eyebrow{color:#d8f36a;display:flex;align-items:center;gap:8px}
+h1{font-size:clamp(64px,7vw,94px);line-height:.98;letter-spacing:-6px;font-weight:900;margin:24px 0}
+h1 em{font-style:normal;color:#d8f36a}
+.hero-description{max-width:400px;color:#b3b6ad;font-size:16px;line-height:1.8}
+.hero-actions{display:flex;gap:12px;margin:28px 0 17px}
+.hero-actions button{display:flex;align-items:center;justify-content:space-between;font-size:15px;padding:17px 19px}
+.play-note{letter-spacing:0;line-height:1.7}
+.demo-board{transform:rotate(2deg);padding:22px;background:#262920;border:1px solid #414536;border-radius:18px;box-shadow:12px 16px 0 #10120e}
+.board-top{font-size:9px;letter-spacing:1.3px;margin-bottom:18px}
+.question-ticket{background:#f2efdf;color:#20231c;padding:24px 20px;position:relative;border-radius:5px}
+.question-ticket p{font-size:25px;line-height:1.2;font-weight:850;letter-spacing:-1px;margin-top:10px}
+.question-ticket .eyebrow{color:#626653;font-size:9px}
+.ticket-stamp{display:block;width:max-content;border:1px solid #7c826b;color:#5d6546;font-size:9px;font-weight:800;padding:6px;transform:rotate(-8deg);margin:20px 0 0 auto}
+.answer-ticket{padding:17px 20px;background:#d8f36a;color:#20231c;border-radius:5px;margin:10px 0 18px}
+.answer-ticket>span{font-size:10px;font-weight:750;letter-spacing:1px}
+.answer-ticket strong{display:block;font-size:70px;letter-spacing:-4px;line-height:1.15}
+.answer-ticket strong span{font-size:14px;letter-spacing:0;margin-left:10px;font-weight:500}
 
-:host {
-  display: block;
-}
-
-// Slider de rondas personalizado
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: #25304f; // ink-700
-  outline: none;
-  cursor: pointer;
-
-  &::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 2px solid #a3e635; // lime-400
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    transition: box-shadow 0.15s, transform 0.15s;
-
-    &:hover {
-      transform: scale(1.05);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(163, 230, 53, 0.2);
-    }
-  }
-
-  &::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 2px solid #a3e635;
-    cursor: pointer;
-  }
+.guess-ticket{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid #454a3a;font-size:12px}
+.avatar{background:#4d5734;color:#e2ecbc;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;font-weight:800}
+.guess-ticket small{display:block;font-size:10px;color:#b3b6ad;margin-top:3px}
+.guess-ticket strong{margin-left:auto;color:#d8f36a;text-align:right}
+.guess-ticket strong small{font-size:7px;letter-spacing:1px}
+.far strong{color:#f4ac92}
+.board-caption{font-size:9px;color:#a8ad9f;text-align:center;margin-top:10px}
+.rules-strip{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #34372e;border-bottom:1px solid #34372e;padding:28px 0;gap:28px}
+.rules-strip article+article{border-left:1px solid #34372e;padding-left:28px}
+.rules-strip span{font-size:10px;color:#d8f36a;letter-spacing:1px}
+.rules-strip h2{font-size:17px;font-weight:750;margin:9px 0}
+.rules-strip p{font-size:12px;line-height:1.7;color:#a8ad9f}
+.home-footer{padding:25px 0;font-size:9px;gap:12px}
+.entry-shell{max-width:400px;margin:55px auto;display:grid;gap:24px}
+input[type=range]{min-height:32px}
+@media(max-width:700px){.home-shell{padding:20px}
+.edition{font-size:8px;max-width:75px;text-align:right}
+.home-grid{grid-template-columns:1fr;gap:35px;padding:38px 0}
+.hero-eyebrow{font-size:9px}
+h1{font-size:clamp(54px,18vw,72px);letter-spacing:-4px;margin:20px 0}
+.hero-description{font-size:14px}
+.hero-actions{gap:9px}
+.hero-actions button{padding:16px 14px;font-size:13px}
+.demo-board{max-width:420px;width:calc(100% - 10px);margin:auto}
+.rules-strip{grid-template-columns:1fr;gap:20px}
+.rules-strip article+article{border-left:0;border-top:1px solid #34372e;padding:20px 0 0}
+.home-footer{align-items:flex-start;line-height:1.6}
+.entry-shell{margin:35px auto}
 }

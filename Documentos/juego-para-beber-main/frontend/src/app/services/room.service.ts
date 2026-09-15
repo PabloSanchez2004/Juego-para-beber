@@ -70,7 +70,16 @@ export class RoomService implements OnDestroy {
 
   // ── Conexión / reconexión ──────────────────────────────────────────────
 
-  async connect(): Promise<void> {
+  private connecting: Promise<void> | null = null;
+
+  connect(): Promise<void> {
+    if (!this.connecting) {
+      this.connecting = this.connectOnce().finally(() => { this.connecting = null; });
+    }
+    return this.connecting;
+  }
+
+  private async connectOnce(): Promise<void> {
     if (this._hub?.state === HubConnectionState.Connected) return;
 
     this._connectionStatus$.next('connecting');
@@ -141,12 +150,6 @@ export class RoomService implements OnDestroy {
     try {
       const rounds = Math.min(20, Math.max(1, Math.round(maxRounds) || 10));
       const playerId = this.ensurePlayerId();
-      this.saveSession({
-        playerId,
-        roomCode: this._localPlayer?.roomCode ?? '',
-        name,
-        alcoholFree: false,
-      });
       await this.invokeWithTimeout('CreateRoom', INVOKE_TIMEOUT_MS, name, false, rounds, playerId);
     } catch (err) {
       console.error('[RoomService] CreateRoom failed:', err);
@@ -158,12 +161,6 @@ export class RoomService implements OnDestroy {
     await this.ensureConnected();
     try {
       const playerId = this.ensurePlayerId();
-      this.saveSession({
-        playerId,
-        roomCode: code.toUpperCase(),
-        name,
-        alcoholFree: false,
-      });
       await this.invokeWithTimeout('JoinRoom', INVOKE_TIMEOUT_MS, code.toUpperCase(), name, false, playerId);
     } catch (err) {
       console.error('[RoomService] JoinRoom failed:', err);
@@ -237,12 +234,13 @@ export class RoomService implements OnDestroy {
   private registerHandlers(): void {
     if (!this._hub) return;
 
-    this._hub.on('RoomCreated', (roomCode: string, playerId: string, raw: GameStateDto) => {
+    this._hub.on('RoomCreated', (roomCode: string, playerId: string, raw: GameStateDto, reconnectToken: string) => {
       try {
         const state = normalizeGameState(raw);
         if (!state) throw new Error('RoomCreated sin estado válido');
         this.saveSession({
           playerId,
+          reconnectToken,
           roomCode: roomCode || state.roomCode,
           name: this.findPlayerName(state, playerId),
           alcoholFree: false,
@@ -254,12 +252,13 @@ export class RoomService implements OnDestroy {
       }
     });
 
-    this._hub.on('JoinedRoom', (playerId: string, raw: GameStateDto) => {
+    this._hub.on('JoinedRoom', (playerId: string, raw: GameStateDto, reconnectToken: string) => {
       try {
         const state = normalizeGameState(raw);
         if (!state) throw new Error('JoinedRoom sin estado válido');
         this.saveSession({
           playerId,
+          reconnectToken,
           roomCode: state.roomCode,
           name: this.findPlayerName(state, playerId),
           alcoholFree: false,
@@ -357,12 +356,17 @@ export class RoomService implements OnDestroy {
 
   private async tryAutoReconnectToRoom(): Promise<void> {
     if (!this._localPlayer?.playerId || !this._localPlayer.roomCode) return;
+    if (!this._localPlayer.reconnectToken) {
+      this.forgetSession();
+      return;
+    }
 
     try {
       await this._hub!.invoke(
         'RejoinRoom',
         this._localPlayer.roomCode,
         this._localPlayer.playerId,
+        this._localPlayer.reconnectToken ?? null,
       );
     } catch (err) {
       console.warn('[RoomService] RejoinRoom falló, reintentando alias Reconnect:', err);
@@ -371,6 +375,7 @@ export class RoomService implements OnDestroy {
           'Reconnect',
           this._localPlayer.roomCode,
           this._localPlayer.playerId,
+          this._localPlayer.reconnectToken ?? null,
         );
       } catch (retryErr) {
         console.warn('[RoomService] Auto-reconexión fallida:', retryErr);
@@ -416,7 +421,7 @@ export class RoomService implements OnDestroy {
   }
 
   private getHubUrl(): string {
-    const baseUrl = (environment.apiUrl || PRODUCTION_API_URL).replace(/\/$/, '');
+    const baseUrl = environment.apiUrl.replace(/\/$/, '');
     const hubUrl = `${baseUrl}/gamehub`;
     const runningOnProdHost =
       typeof window !== 'undefined' && !window.location.hostname.includes('localhost');

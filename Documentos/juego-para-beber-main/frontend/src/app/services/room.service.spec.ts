@@ -4,6 +4,7 @@
  *
  * Para ejecutar: ng test (requiere node_modules instalados)
  */
+import { take } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { RoomService } from './room.service';
 
@@ -23,6 +24,8 @@ describe('RoomService', () => {
   let service: RoomService;
 
   beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.removeItem('aproximados_session_backup');
     TestBed.configureTestingModule({});
     service = TestBed.inject(RoomService);
     // Inyectar hub mock
@@ -35,14 +38,14 @@ describe('RoomService', () => {
   });
 
   it('initial connectionStatus should be disconnected', (done) => {
-    service.connectionStatus$.subscribe(status => {
+    service.connectionStatus$.pipe(take(1)).subscribe(status => {
       expect(status).toBe('disconnected');
       done();
     });
   });
 
   it('initial gameState should be null', (done) => {
-    service.gameState$.subscribe(state => {
+    service.gameState$.pipe(take(1)).subscribe(state => {
       expect(state).toBeNull();
       done();
     });
@@ -73,4 +76,13 @@ describe('RoomService', () => {
     expect(service.localPlayer).toBeNull();
     expect(service.currentState).toBeNull();
   });
+  it('does not overwrite a valid recovery secret when joining fails', async () => {
+    const session = { playerId: 'p1', roomCode: 'ABCD', name: 'Ana', alcoholFree: false, reconnectToken: 'private-secret' };
+    (service as any)._localPlayer = session;
+    mockHub.invoke.and.returnValue(Promise.reject(new Error('Connection failed')));
+    await expectAsync(service.joinRoom('EFGH', 'Ana')).toBeRejected();
+    expect(service.localPlayer).toEqual(session);
+    mockHub.invoke.and.returnValue(Promise.resolve());
+  });
+
 });

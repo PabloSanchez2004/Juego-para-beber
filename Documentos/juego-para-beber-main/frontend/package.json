@@ -2,15 +2,14 @@
   "name": "aproximados-frontend",
   "version": "1.0.0",
   "engines": {
-    "node": "24.x"
+    "node": "^20.19.0 || ^22.12.0 || ^24.0.0"
   },
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "build:prod": "ng build --configuration production",
-    "test": "ng test --no-watch --browsers=ChromeHeadless",
-    "lint": "ng lint"
+    "test": "ng test --no-watch --browsers=ChromeHeadless"
   },
   "private": true,
   "allowScripts": {
@@ -21,25 +20,25 @@
     "msgpackr-extract": true
   },
   "dependencies": {
-    "@angular/animations": "^17.3.0",
-    "@angular/common": "^17.3.0",
-    "@angular/compiler": "^17.3.0",
-    "@angular/core": "^17.3.0",
-    "@angular/forms": "^17.3.0",
-    "@angular/platform-browser": "^17.3.0",
-    "@angular/platform-browser-dynamic": "^17.3.0",
-    "@angular/router": "^17.3.0",
-    "@angular/service-worker": "^17.3.0",
+    "@angular/animations": "~21.2.23",
+    "@angular/common": "~21.2.23",
+    "@angular/compiler": "~21.2.23",
+    "@angular/core": "~21.2.23",
+    "@angular/forms": "~21.2.23",
+    "@angular/platform-browser": "~21.2.23",
+    "@angular/platform-browser-dynamic": "~21.2.23",
+    "@angular/router": "~21.2.23",
+    "@angular/service-worker": "~21.2.23",
     "@microsoft/signalr": "^8.0.7",
     "@vercel/analytics": "^2.0.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.6.0",
-    "zone.js": "~0.14.0"
+    "zone.js": "~0.15.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^17.3.0",
-    "@angular/cli": "^17.3.0",
-    "@angular/compiler-cli": "^17.3.0",
+    "@angular-devkit/build-angular": "~21.2.24",
+    "@angular/cli": "~21.2.24",
+    "@angular/compiler-cli": "~21.2.23",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.0.0",
     "autoprefixer": "^10.4.0",
@@ -51,6 +50,6 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "~5.4.0"
+    "typescript": "~5.9.3"
   }
 }

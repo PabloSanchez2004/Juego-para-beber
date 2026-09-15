@@ -6,6 +6,14 @@ namespace Aproximados.Api.Models;
 /// </summary>
 public sealed class Player
 {
+    /// <summary>Private recovery secret, excluded from every public DTO.</summary>
+    public string ReconnectToken { get; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+
+    public bool HasReconnectToken(string? token) => token is not null &&
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(ReconnectToken),
+            System.Text.Encoding.UTF8.GetBytes(token));
+
     // ── Identidad ──────────────────────────────────────────────────────────
 
     /// <summary>Nombre visible elegido por el jugador.</summary>

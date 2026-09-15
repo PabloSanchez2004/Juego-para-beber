@@ -8,10 +8,7 @@
     <AssemblyName>Aproximados.Api</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
-  </ItemGroup>
+
 
   <!--
     Tests/ usa xunit, que no es dependencia de la API. Compilarlos aquí rompía
@@ -20,6 +17,8 @@
   -->
   <ItemGroup>
     <Compile Remove="Tests/**/*.cs" />
+    <Content Remove="Tests/**" />
+    <None Remove="Tests/**" />
   </ItemGroup>
 
 </Project>

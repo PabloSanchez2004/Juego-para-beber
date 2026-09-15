@@ -114,10 +114,11 @@ export class GameComponent implements OnInit, OnDestroy {
           this.router.navigate(['/']);
           return;
         }
+        const previous = this.state();
         this.state.set(s);
 
         // Reset al cambiar de fase
-        if (s.phase === 'WritingQuestion') {
+        if (s.phase === 'WritingQuestion' && (previous?.phase !== s.phase || previous?.roundNumber !== s.roundNumber)) {
           this.question.set('');
           this.questionSent.set(false);
           this.guessSent.set(false);

@@ -9,9 +9,9 @@ module.exports = {
         // ── Paleta "premium dark" ─────────────────────────────────────
         // Superficies: azul-gris muy oscuro, sin negro puro ni neón.
         ink: {
-          950: '#0b1020', // fondo de la app
-          900: '#121a2f', // tarjetas
-          800: '#1a2340', // tarjetas elevadas / inputs / botón secundario
+          950: '#191c16', // fondo de la app
+          900: '#22261e', // tarjetas
+          800: '#2d3226', // tarjetas elevadas / inputs / botón secundario
           700: '#25304f', // bordes marcados, hover
           600: '#33405f',
         },

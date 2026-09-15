@@ -17,7 +17,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       # [RELLENAR_AQUI_PABLO: Pon aquí tu API key de Gemini]
-      - GEMINI_API_KEY=
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # [RELLENAR_AQUI_PABLO: Pon aquí la URL de tu frontend Angular desplegado]
       - Cors__AllowedOrigins__0=http://localhost:4200
     restart: unless-stopped

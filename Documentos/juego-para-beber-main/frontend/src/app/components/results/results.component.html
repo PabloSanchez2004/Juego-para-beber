@@ -48,7 +48,7 @@
                 {{ r.correctAnswer | number:'1.0-4' }}
               </p>
               @if (r.answerSource) {
-                <p class="text-slate-500 text-xs mt-2 truncate">Fuente: {{ r.answerSource }}</p>
+                <p class="text-slate-500 text-xs mt-2 break-words">Fuente: {{ r.answerSource }}</p>
               }
             </div>
             @if (redactorName()) {
@@ -225,7 +225,7 @@
           }
           <button
             class="btn-primary"
-            [disabled]="loading()"
+            [disabled]="loading() || s.adminPlayerId !== myPlayerId()"
             (click)="nextRound()"
             aria-label="Siguiente ronda">
             @if (loading()) {
@@ -235,7 +235,7 @@
                 <span class="loading-dot" style="animation-delay:300ms"></span>
               </span>
             } @else {
-              Siguiente ronda →
+              {{ s.adminPlayerId === myPlayerId() ? 'Siguiente ronda →' : 'El anfitrión inicia la siguiente ronda' }}
             }
           </button>
         </div>

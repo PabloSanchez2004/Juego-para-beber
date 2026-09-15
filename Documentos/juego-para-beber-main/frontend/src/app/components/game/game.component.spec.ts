@@ -166,4 +166,16 @@ describe('GameComponent', () => {
     fixture.detectChanges();
     expect(component.guessProgress()).toBe(0);
   });
+  it('keeps a draft when a connection update arrives in the same round', () => {
+    component.question.set('¿Cuántos huesos tiene un adulto?');
+    gameState$.next({ ...mockState, players: [...mockState.players] });
+    expect(component.question()).toBe('¿Cuántos huesos tiene un adulto?');
+  });
+
+  it('clears the draft when a new round begins', () => {
+    component.question.set('Pregunta anterior');
+    gameState$.next({ ...mockState, roundNumber: 2 });
+    expect(component.question()).toBe('');
+  });
+
 });

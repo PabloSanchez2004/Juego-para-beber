@@ -1,36 +1,28 @@
-<!-- Pantalla principal / identificación / unirse -->
-<div class="min-h-screen flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
-
-  <!-- Logo / título -->
-  <div class="text-center mb-10">
-    <div class="text-7xl mb-3" aria-hidden="true">🎯</div>
-    <h1 class="text-5xl font-extrabold text-white tracking-tight">Aproximados</h1>
-    <p class="text-slate-400 mt-2 text-lg">El juego donde gana quien más se acerca</p>
-  </div>
-
-  <!-- ── Vista principal ── -->
+<main class="home-shell animate-fade-in">
+  <header class="brand-bar"><a href="/" class="wordmark" aria-label="Aproximados, inicio"><span class="brand-symbol" aria-hidden="true">≈</span> aproximados</a><span class="edition">EL JUEGO DE LA PREVIA</span></header>
   @if (view() === 'main') {
-    <div class="w-full max-w-sm space-y-4 animate-slide-up">
-      <button
-        class="btn-primary"
-        (click)="showCreate()"
-        aria-label="Crear una sala nueva">
-        🏠 Crear sala
-      </button>
-
-      <button
-        class="btn-secondary"
-        (click)="showJoin()"
-        aria-label="Unirse a una sala existente">
-        🚪 Unirme a una sala
-      </button>
-
-      <p class="text-center text-gray-600 text-sm pt-4">
-        Necesitas al menos 2 jugadores para empezar
-      </p>
-    </div>
-  }
-
+    <section class="home-grid">
+      <div class="hero-copy">
+        <p class="eyebrow hero-eyebrow"><span></span> MUCHA INTUICIÓN. POCA VERGÜENZA.</p>
+        <h1>No hace falta<br>saber.<br><em>Acércate.</em></h1>
+        <p class="hero-description">Una pregunta. Un número. Y ese colega que se pasa tres pueblos. La IA busca el dato; vosotros ponéis el espectáculo.</p>
+        <div class="hero-actions"><button class="btn-primary" (click)="showCreate()">Crear sala <span aria-hidden="true">↗</span></button><button class="btn-secondary" (click)="showJoin()">Tengo un código <span aria-hidden="true">→</span></button></div>
+        <p class="play-note">Desde 2 jugadores · Cada uno con su móvil · Sin registros</p>
+        @if (errorMsg()) { <p class="alert-error" role="alert">{{ errorMsg() }}</p> }
+      </div>
+      <div class="demo-board" aria-label="Ejemplo de ronda: cuántos huesos tiene un adulto, respuesta 206">
+        <div class="board-top"><span>ASÍ SE JUEGA</span><span>RONDA 01 / 10</span></div>
+        <div class="question-ticket"><span class="eyebrow">EL REDACTOR PREGUNTA</span><p>¿Cuántos huesos tiene<br>un cuerpo adulto?</p><span class="ticket-stamp">SIN OPCIONES.<br>A OJO.</span></div>
+        <div class="answer-ticket"><span>EL DATO</span><strong>206<span>huesos</span></strong><span class="answer-check">↗ Cuanto más cerca, mejor.</span></div>
+        <div class="guess-ticket"><span class="avatar">L</span><div><b>Lucía</b><small>«Yo digo 200»</small></div><strong>2,9%<small>DE ERROR</small></strong></div>
+        <div class="guess-ticket far"><span class="avatar">D</span><div><b>Dani</b><small>«Pues unos 3.000»</small></div><strong>1.356%<small>SE HA VENIDO ARRIBA</small></strong></div>
+        <p class="board-caption">Ejemplo ilustrativo. Las respuestas se guardan en secreto.</p>
+      </div>
+    </section>
+    <section class="rules-strip" aria-label="Cómo se juega"><article><span>01 / INVENTA</span><h2>Pregunta lo que sea.</h2><p>Siempre que la respuesta sea un número verificable.</p></article><article><span>02 / APROXIMA</span><h2>Fíate de tu instinto.</h2><p>Escribe tu cifra en secreto. El redactor no participa.</p></article><article><span>03 / DESCUBRE</span><h2>Que hablen los números.</h2><p>El más cercano reparte. El más lejano recibe el castigo.</p></article></section>
+    <footer class="home-footer"><span>EL SABER NO OCUPA LUGAR. EL FALLO SÍ.</span><span>Con lo que tengas en el vaso.</span></footer>
+  } @else {
+    <section class="entry-shell"><p class="eyebrow">QUE EMPIECE LA PREVIA</p>
   <!-- ── Crear sala ── -->
   @if (view() === 'create') {
     <div class="w-full max-w-sm space-y-5 animate-slide-up">
@@ -48,6 +40,7 @@
           placeholder="¿Cómo te llaman?"
           [value]="name()"
           (input)="onNameInput($event)"
+          (keyup.enter)="createRoom()"
           maxlength="20"
           autocomplete="nickname"
           autocapitalize="words"
@@ -96,7 +89,7 @@
         (click)="createRoom()"
         aria-label="Crear sala">
         @if (loading()) {
-          <span class="flex items-center justify-center gap-2">
+          <span class="flex items-center justify-center gap-2" role="status" aria-label="Conectando">
             <span class="loading-dot" style="animation-delay:0ms"></span>
             <span class="loading-dot" style="animation-delay:150ms"></span>
             <span class="loading-dot" style="animation-delay:300ms"></span>
@@ -155,7 +148,7 @@
         (click)="checkCode()"
         aria-label="Comprobar el código de sala">
         @if (loading()) {
-          <span class="flex items-center justify-center gap-2">
+          <span class="flex items-center justify-center gap-2" role="status" aria-label="Conectando">
             <span class="loading-dot" style="animation-delay:0ms"></span>
             <span class="loading-dot" style="animation-delay:150ms"></span>
             <span class="loading-dot" style="animation-delay:300ms"></span>
@@ -216,7 +209,7 @@
         (click)="joinRoom()"
         aria-label="Unirse a la sala">
         @if (loading()) {
-          <span class="flex items-center justify-center gap-2">
+          <span class="flex items-center justify-center gap-2" role="status" aria-label="Conectando">
             <span class="loading-dot" style="animation-delay:0ms"></span>
             <span class="loading-dot" style="animation-delay:150ms"></span>
             <span class="loading-dot" style="animation-delay:300ms"></span>
@@ -232,4 +225,7 @@
     </div>
   }
 
-</div>
+
+</section>
+  }
+</main>

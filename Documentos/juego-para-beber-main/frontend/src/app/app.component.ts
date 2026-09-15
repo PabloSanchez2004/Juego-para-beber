@@ -62,9 +62,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupServiceWorkerUpdates();
 
     // Recarga de Vercel / bloqueo de pantalla: si hay sesión, reconectar ya.
-    void this.roomService.connect().catch(err => {
-      console.warn('[App] Conexión inicial fallida:', err);
-    });
+    if (this.roomService.localPlayer) {
+      void this.roomService.connect().catch(err => {
+        console.warn('[App] Conexión inicial fallida:', err);
+      });
+    }
 
     // Navegar automáticamente según el estado del juego
     this.subs.add(
@@ -103,7 +105,7 @@ export class AppComponent implements OnInit, OnDestroy {
         .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
         .subscribe(event => {
           pageview({
-            path: event.urlAfterRedirects,
+            path: this.currentRoutePattern(),
             route: this.currentRoutePattern(),
           });
         })
@@ -131,8 +133,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.swUpdate.versionUpdates
         .pipe(filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY'))
         .subscribe(() => {
-          console.info('[PWA] New version available. Reloading...');
-          void this.swUpdate.activateUpdate().then(() => document.location.reload());
+          console.info('[PWA] Nueva versión lista. Se aplicará al volver a abrir el juego.');
         })
     );
 

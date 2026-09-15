@@ -152,8 +152,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
     const code = this.state()?.roomCode;
     if (!code) return;
 
-    await this.writeToClipboard(code);
-    this.flag(this.codeCopied);
+    if (await this.writeToClipboard(code)) this.flag(this.codeCopied);
   }
 
   /**
@@ -178,8 +177,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
       }
     }
 
-    await this.writeToClipboard(link);
-    this.flag(this.linkCopied);
+    if (await this.writeToClipboard(link)) this.flag(this.linkCopied);
   }
 
   async leaveRoom(): Promise<void> {
@@ -197,12 +195,14 @@ export class LobbyComponent implements OnInit, OnDestroy {
 
   // ── Helpers ────────────────────────────────────────────────────────────
 
-  private async writeToClipboard(text: string): Promise<void> {
+  private async writeToClipboard(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
+      return true;
     } catch {
       // Navegadores sin Clipboard API (http, WebViews antiguos)
-      console.warn('[Lobby] Clipboard no disponible.');
+      this.errorMsg.set('No se pudo copiar. Selecciona el código de la sala y compártelo manualmente.');
+      return false;
     }
   }
 

@@ -127,18 +127,19 @@ public sealed class GameHub : Hub
                 return;
             }
 
+            await LeaveRoom();
             await Groups.AddToGroupAsync(Context.ConnectionId, room.Code);
             StoreContext(room.Code, player.PlayerId);
 
             var state = room.ToDto(player.PlayerId);
-            await Clients.Caller.SendAsync("RoomCreated", room.Code, player.PlayerId, state);
+            await Clients.Caller.SendAsync("RoomCreated", room.Code, player.PlayerId, state, player.ReconnectToken);
 
             _logger.LogInformation("Sala {Code} creada por {Name}", room.Code, name);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "CreateRoom falló para {Name}", name);
-            await SendError($"Error al crear la sala: {ex.Message}");
+            await SendError("No se pudo crear la sala. Inténtalo de nuevo.");
         }
     }
 
@@ -152,7 +153,7 @@ public sealed class GameHub : Hub
             return;
         }
 
-        code = code.Trim().ToUpperInvariant();
+        code = (code ?? string.Empty).Trim().ToUpperInvariant();
         var room = _roomManager.GetRoom(code);
 
         if (room is null)
@@ -165,7 +166,7 @@ public sealed class GameHub : Hub
         if (!string.IsNullOrWhiteSpace(playerId) &&
             room.Players.Any(p => p.PlayerId == playerId))
         {
-            await RejoinRoom(code, playerId);
+            await SendError("Ese jugador ya existe. Recupera tu sesión original o usa otro perfil.");
             return;
         }
 
@@ -184,11 +185,12 @@ public sealed class GameHub : Hub
             return;
         }
 
+        await LeaveRoom();
         await Groups.AddToGroupAsync(Context.ConnectionId, code);
         StoreContext(code, player.PlayerId);
 
         var state = room.ToDto(player.PlayerId);
-        await Clients.Caller.SendAsync("JoinedRoom", player.PlayerId, state);
+        await Clients.Caller.SendAsync("JoinedRoom", player.PlayerId, state, player.ReconnectToken);
 
         // Notificar al resto de la sala
         await BroadcastState(room, excludePlayerId: null);
@@ -203,7 +205,7 @@ public sealed class GameHub : Hub
     /// volátil. La última conexión gana: así un refresh o un corte 5G no se
     /// rechaza como «otro dispositivo».
     /// </summary>
-    public async Task RejoinRoom(string roomId, string playerId)
+    public async Task RejoinRoom(string roomId, string playerId, string? reconnectToken)
     {
         var code = (roomId ?? string.Empty).Trim().ToUpperInvariant();
         var room = _roomManager.GetRoom(code);
@@ -215,12 +217,16 @@ public sealed class GameHub : Hub
         }
 
         var player = room.Players.FirstOrDefault(p => p.PlayerId == playerId);
-        if (player is null)
+        if (player is null || !player.HasReconnectToken(reconnectToken))
         {
             await SendError("Tu sesión expiró. Únete de nuevo con tu nombre.");
             return;
         }
 
+        if (Context.Items[RoomCodeKey] is string currentCode &&
+            (currentCode != code || Context.Items[PlayerIdKey] as string != playerId))
+            await LeaveRoom();
+        var previousConnection = player.ConnectionId;
         if (!room.TryReconnectPlayer(playerId, Context.ConnectionId))
         {
             await SendError("No se pudo reconectar. La sala puede haber cerrado.");
@@ -229,6 +235,8 @@ public sealed class GameHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, code);
         StoreContext(code, playerId);
+        if (previousConnection != Context.ConnectionId)
+            await Groups.RemoveFromGroupAsync(previousConnection, code);
 
         // Estado privado de la ronda (pregunta, progreso, su propia estimación).
         var state = room.ToDto(playerId);
@@ -242,7 +250,7 @@ public sealed class GameHub : Hub
     }
 
     /// <summary>Alias retrocompatible de <see cref="RejoinRoom"/>.</summary>
-    public Task Reconnect(string code, string playerId) => RejoinRoom(code, playerId);
+    public Task Reconnect(string code, string playerId, string? reconnectToken) => RejoinRoom(code, playerId, reconnectToken);
 
     // ── Iniciar juego ──────────────────────────────────────────────────────
 
@@ -450,6 +458,16 @@ public sealed class GameHub : Hub
         var (room, player) = await GetRoomAndPlayerOrError();
         if (room is null || player is null) return;
 
+        if (!room.IsAdmin(player.PlayerId))
+        {
+            await SendError("Solo el anfitrión puede avanzar la ronda.");
+            return;
+        }
+        if (room.Phase != GamePhase.ShowingResults)
+        {
+            await SendError("Espera a los resultados antes de avanzar.");
+            return;
+        }
         bool hasMore = room.TryAdvanceRound();
 
         if (!hasMore)
@@ -476,7 +494,8 @@ public sealed class GameHub : Hub
         // Salida voluntaria: libera el asiento de verdad (a diferencia de una
         // desconexión, que lo reserva). Así el nombre vuelve a estar libre y,
         // si se iba el anfitrión, la sala promociona a otro.
-        if (room is not null && playerId is not null && room.RemovePlayer(playerId))
+        if (room is not null && playerId is not null &&
+            room.Players.Any(p => p.PlayerId == playerId && p.ConnectionId == Context.ConnectionId) && room.RemovePlayer(playerId))
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
             await BroadcastState(room, excludePlayerId: null);
@@ -493,6 +512,13 @@ public sealed class GameHub : Hub
     // ── Lógica de finalización de ronda ────────────────────────────────────
 
     private async Task FinalizeRoundAsync(Room room)
+    {
+        if (!await room.FinalizationGate.WaitAsync(0)) return;
+        try { await FinalizeRoundCoreAsync(room); }
+        finally { room.FinalizationGate.Release(); }
+    }
+
+    private async Task FinalizeRoundCoreAsync(Room room)
     {
         if (room.Phase != GamePhase.CollectingGuesses) return;
 
@@ -540,7 +566,7 @@ public sealed class GameHub : Hub
 
             await Clients.Group(room.Code).SendAsync(
                 "Error",
-                $"⚠️ La IA no pudo verificar la respuesta: {answerResult.Explanation}. " +
+                "La IA no pudo resolver esta pregunta. " +
                 "El Redactor debe reformular la pregunta con datos más concretos.");
 
             // Revertir a WritingQuestion para que el Redactor reformule
@@ -602,7 +628,7 @@ public sealed class GameHub : Hub
         }
 
         var player = room.Players.FirstOrDefault(p => p.PlayerId == playerId);
-        if (player is null)
+        if (player is null || player.ConnectionId != Context.ConnectionId)
         {
             await SendError("No se encontró tu perfil en la sala.");
             return (null, null);

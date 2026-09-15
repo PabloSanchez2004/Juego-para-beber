@@ -109,7 +109,7 @@ public sealed class GeminiService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error consultando Gemini para pregunta: {Q}", question);
-            return GeminiAnswerResult.Unverifiable($"Error de IA: {ex.Message}");
+            return GeminiAnswerResult.Unverifiable("No se pudo consultar la IA. Inténtalo de nuevo.");
         }
     }
 
@@ -174,14 +174,16 @@ public sealed class GeminiService
 
     private async Task<JsonDocument> CallGeminiAsync(GeminiRequest requestBody, CancellationToken ct)
     {
-        var url = $"{GeminiBaseUrl}/models/{ModelId}:generateContent?key={_apiKey}";
+        var url = $"{GeminiBaseUrl}/models/{ModelId}:generateContent";
         var json = JsonSerializer.Serialize(requestBody, GeminiJsonContext.Default.GeminiRequest);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(15)); // timeout de IA
 
-        var httpResponse = await _http.PostAsync(url, content, cts.Token);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.Headers.Add("x-goog-api-key", _apiKey);
+        using var httpResponse = await _http.SendAsync(request, cts.Token);
 
         if (!httpResponse.IsSuccessStatusCode)
         {

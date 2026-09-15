@@ -34,3 +34,7 @@ secrets.json
 logs/
 .DS_Store
 Thumbs.db
+
+# Nested test build output
+**/bin
+**/obj
