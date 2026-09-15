@@ -130,7 +130,13 @@
                   <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
                     <span class="badge-gold text-sm px-3.5 py-1.5 animate-pop-in">{{ winnerBadge() }}</span>
                     <span class="text-gold-300/80 text-xs font-medium text-right">
-                      {{ isSoloEstimator() ? 'Único estimador · gana la ronda' : 'El que más se acercó' }}
+                      @if (isNextRedactor(row.entry.playerId)) {
+                        ✍️ Redacta la siguiente
+                      } @else if (isSoloEstimator()) {
+                        Único estimador · gana la ronda
+                      } @else {
+                        El que más se acercó
+                      }
                     </span>
                   </div>
                 } @else if (row.outcome === 'loser') {
@@ -147,8 +153,8 @@
           @if (isSoloEstimator()) {
             <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
               Con dos jugadores solo adivina uno: <span class="text-slate-300 font-medium">{{ soloWinnerName() }}</span>
-              se lleva la ronda y reparte {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
-              El Redactor no bebe por esta ronda.
+              se lleva la ronda, reparte {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}
+              y redacta la siguiente. El Redactor no bebe por esta ronda.
             </p>
           } @else if (losers().length === 0 && ranking().length > 1) {
             <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
@@ -207,6 +213,16 @@
 
         <!-- ── CTA: siguiente ronda ───────────────────────────────────── -->
         <div class="mt-auto">
+          @if (nextRedactor(); as nr) {
+            <p class="text-center text-slate-400 text-sm mb-3 leading-snug">
+              Siguiente redactor:
+              <span class="text-white font-semibold">{{ nr.playerName }}</span>
+              @if (isMe(nr.playerId)) {
+                <span class="text-brand-300"> · tú</span>
+              }
+              <span class="text-slate-500"> · el más cercano al valor</span>
+            </p>
+          }
           <button
             class="btn-primary"
             [disabled]="loading()"

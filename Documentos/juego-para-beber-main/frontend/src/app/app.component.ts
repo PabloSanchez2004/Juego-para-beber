@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { pageview } from '@vercel/analytics';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { RoomService } from './services/room.service';
@@ -57,6 +58,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.setupAnalyticsPageViews();
     this.setupServiceWorkerUpdates();
 
     // Recarga de Vercel / bloqueo de pantalla: si hay sesión, reconectar ya.
@@ -93,6 +95,33 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subs.unsubscribe();
     clearTimeout(this.kickedTimer);
+  }
+
+  private setupAnalyticsPageViews(): void {
+    this.subs.add(
+      this.router.events
+        .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+        .subscribe(event => {
+          pageview({
+            path: event.urlAfterRedirects,
+            route: this.currentRoutePattern(),
+          });
+        })
+    );
+  }
+
+  private currentRoutePattern(): string {
+    let snapshot = this.router.routerState.snapshot.root;
+    const segments: string[] = [];
+
+    while (snapshot.firstChild) {
+      snapshot = snapshot.firstChild;
+      if (snapshot.routeConfig?.path) {
+        segments.push(snapshot.routeConfig.path);
+      }
+    }
+
+    return segments.length ? `/${segments.join('/')}` : '/';
   }
 
   private setupServiceWorkerUpdates(): void {

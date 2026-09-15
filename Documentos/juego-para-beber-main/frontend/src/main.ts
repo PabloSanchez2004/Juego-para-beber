@@ -1,6 +1,8 @@
 import { bootstrapApplication } from '@angular/platform-browser';
+import { inject as injectVercelAnalytics } from '@vercel/analytics';
 import { appConfig } from './app/app.config';
 import { AppComponent } from './app/app.component';
+import { environment } from './environments/environment';
 
 const SW_RESET_KEY = 'aproximados_sw_reset';
 const SW_RESET_TOKEN = 'sw-reset-2026-09-12';
@@ -18,6 +20,12 @@ async function clearStaleServiceWorkers(): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
+  injectVercelAnalytics({
+    framework: 'angular',
+    disableAutoTrack: true,
+    mode: environment.production ? 'production' : 'development',
+  });
+
   const isProdHost = typeof location !== 'undefined' && !location.hostname.includes('localhost');
 
   if (isProdHost && localStorage.getItem(SW_RESET_KEY) !== SW_RESET_TOKEN) {

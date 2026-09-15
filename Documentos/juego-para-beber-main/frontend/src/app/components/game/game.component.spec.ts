@@ -69,6 +69,13 @@ describe('GameComponent', () => {
   it('should detect writing phase', () => {
     expect(component.isWritingPhase()).toBeTrue();
     expect(component.isCollectingPhase()).toBeFalse();
+    expect(component.isFollowUpRound()).toBeFalse();
+  });
+
+  it('should mark follow-up rounds after the first', () => {
+    gameState$.next({ ...mockState, roundNumber: 2 });
+    fixture.detectChanges();
+    expect(component.isFollowUpRound()).toBeTrue();
   });
 
   it('should detect collecting phase', () => {

@@ -52,6 +52,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   isWritingPhase = computed(() => this.state()?.phase === 'WritingQuestion');
   isCollectingPhase = computed(() => this.state()?.phase === 'CollectingGuesses');
+  isFollowUpRound = computed(() => (this.state()?.roundNumber ?? 0) > 1);
 
   redactorName = computed(() => {
     const s = this.state();

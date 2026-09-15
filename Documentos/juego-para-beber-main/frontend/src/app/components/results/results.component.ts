@@ -78,6 +78,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
     return s.players.find(p => p.playerId === s.redactorPlayerId)?.name ?? '';
   });
 
+  /**
+   * Quién redactará la siguiente ronda: el más cercano que siga conectado.
+   * Coincide con la regla del backend (ranking por error, empate por nombre).
+   */
+  nextRedactor = computed(() => {
+    const s = this.state();
+    if (!s) return null;
+
+    const connected = new Set(
+      s.players.filter(p => p.isConnected).map(p => p.playerId)
+    );
+    return this.ranking().find(r => connected.has(r.playerId)) ?? null;
+  });
+
   /** Ganador(es): rango 1. */
   winners = computed(() => this.ranking().filter(r => r.rank === 1));
 
@@ -212,6 +226,10 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   isRedactor(playerId: string): boolean {
     return playerId === this.state()?.redactorPlayerId;
+  }
+
+  isNextRedactor(playerId: string): boolean {
+    return playerId === this.nextRedactor()?.playerId;
   }
 
   /** Clasifica una entrada del ranking para colorear la tarjeta y mostrar el badge. */

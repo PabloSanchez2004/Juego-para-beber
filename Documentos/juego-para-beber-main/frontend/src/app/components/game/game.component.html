@@ -31,7 +31,13 @@
               <span class="text-3xl">✍️</span>
               <div>
                 <h2 class="text-xl font-bold text-white">Eres el Redactor</h2>
-                <p class="text-gray-400 text-sm">Escribe una pregunta de respuesta numérica</p>
+                <p class="text-gray-400 text-sm">
+                  @if (isFollowUpRound()) {
+                    Te toca: fuiste el más cercano al valor
+                  } @else {
+                    Escribe una pregunta de respuesta numérica
+                  }
+                </p>
               </div>
             </div>
             <p class="text-gray-500 text-xs">

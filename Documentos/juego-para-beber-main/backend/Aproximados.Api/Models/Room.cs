@@ -42,7 +42,7 @@ public sealed class Room
     private int _roundNumber;
     private string? _currentQuestion;
     private string? _redactorPlayerId;
-    private int _redactorIndex; // índice rotativo
+    private int _redactorIndex; // solo ronda 1 (o si no hay ranking usable)
     private RoundResult? _lastResult;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
@@ -513,7 +513,7 @@ public sealed class Room
             }
 
             _roundNumber++;
-            _redactorIndex = (_redactorIndex + 1) % Math.Max(1, _players.Values.Count(p => p.IsConnected));
+            var nextRedactorId = PickNextRedactorPlayerId();
 
             // IMPORTANTE: limpiar la ronda ANTES de asignar el Redactor.
             // ResetForNewRound() pone Role = Estimator a todos; si se ejecutara
@@ -523,7 +523,7 @@ public sealed class Room
             foreach (var p in _players.Values)
                 p.ResetForNewRound();
 
-            AssignRedactor();
+            AssignRedactor(nextRedactorId);
 
             _currentQuestion = null;
             _pendingAnswer = null;
@@ -595,13 +595,42 @@ public sealed class Room
 
     // ── Helpers privados ───────────────────────────────────────────────────
 
-    private void AssignRedactor()
+    /// <summary>
+    /// El más cercano al valor de la ronda anterior redacta la siguiente.
+    /// Empates: el ranking ya está ordenado por error y luego por nombre.
+    /// Si el ganador se desconectó, pasa al siguiente más cercano que siga dentro.
+    /// </summary>
+    private string? PickNextRedactorPlayerId()
+    {
+        if (_lastResult?.Ranking is null || _lastResult.Ranking.Count == 0)
+            return null;
+
+        var connectedIds = _players.Values
+            .Where(p => p.IsConnected)
+            .Select(p => p.PlayerId)
+            .ToHashSet();
+
+        return _lastResult.Ranking
+            .Where(r => connectedIds.Contains(r.PlayerId))
+            .Select(r => r.PlayerId)
+            .FirstOrDefault();
+    }
+
+    private void AssignRedactor(string? preferredPlayerId = null)
     {
         var connected = _players.Values.Where(p => p.IsConnected).ToList();
         if (connected.Count == 0) return;
 
-        _redactorIndex = _redactorIndex % connected.Count;
-        var redactor = connected[_redactorIndex];
+        var redactor = !string.IsNullOrEmpty(preferredPlayerId)
+            ? connected.FirstOrDefault(p => p.PlayerId == preferredPlayerId)
+            : null;
+
+        if (redactor is null)
+        {
+            _redactorIndex = _redactorIndex % connected.Count;
+            redactor = connected[_redactorIndex];
+        }
+
         _redactorPlayerId = redactor.PlayerId;
 
         foreach (var p in _players.Values)

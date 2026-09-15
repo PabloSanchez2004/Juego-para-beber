@@ -195,6 +195,24 @@ describe('ResultsComponent', () => {
     expect(component.isRedactor('p1')).toBeTrue();
   });
 
+  it('should pick the closest connected player as next redactor', () => {
+    expect(component.nextRedactor()?.playerId).toBe('p2');
+    expect(component.nextRedactor()?.playerName).toBe('Bob');
+    expect(component.isNextRedactor('p2')).toBeTrue();
+    expect(component.isNextRedactor('p1')).toBeFalse();
+  });
+
+  it('should skip a disconnected closest player for next redactor', () => {
+    gameState$.next({
+      ...mockState,
+      players: mockState.players.map(p =>
+        p.playerId === 'p2' ? { ...p, isConnected: false } : p
+      ),
+    });
+    fixture.detectChanges();
+    expect(component.nextRedactor()?.playerId).toBe('p3');
+  });
+
   it('formatError should handle exact answer', () => {
     expect(component.formatError(0)).toContain('Exacto');
   });

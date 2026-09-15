@@ -405,18 +405,19 @@ public class RoomTwoPlayerFlowTests
     }
 
     [Fact]
-    public void Round2_TwoPlayers_RedactorRotatesAndStillExpectsOneGuess()
+    public void Round2_TwoPlayers_ClosestGuessBecomesRedactorAndStillExpectsOneGuess()
     {
         var room = CreateStartedTwoPlayerRoom();
         var firstRedactor = room.RedactorPlayerId;
+        var firstEstimator = EstimatorOf(room).PlayerId;
 
         room.TrySubmitQuestion(firstRedactor!, "¿Cuántos km tiene la Tierra?");
-        room.TrySubmitGuess(EstimatorOf(room).PlayerId, 12000);
+        room.TrySubmitGuess(firstEstimator, 12000);
         Assert.NotNull(room.FinalizeRound(12742, "src", string.Empty));
         Assert.True(room.TryAdvanceRound());
 
-        // El Redactor rota y su rol debe reflejarlo
-        Assert.NotEqual(firstRedactor, room.RedactorPlayerId);
+        // El único estimador fue el más cercano: le toca redactar.
+        Assert.Equal(firstEstimator, room.RedactorPlayerId);
         var redactor = room.Players.Single(p => p.PlayerId == room.RedactorPlayerId);
         Assert.Equal(PlayerRole.Redactor, redactor.Role);
         Assert.Equal(PlayerRole.Estimator, EstimatorOf(room).Role);
@@ -432,6 +433,85 @@ public class RoomTwoPlayerFlowTests
         var (ok, allSubmitted) = room.TrySubmitGuess(EstimatorOf(room).PlayerId, 206);
         Assert.True(ok);
         Assert.True(allSubmitted);
+    }
+
+    [Fact]
+    public void Round2_ClosestGuess_BecomesNextRedactor_NotRoundRobin()
+    {
+        var room = new Room { Code = "CLSE" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryAddPlayer(new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" });
+        Assert.True(room.TryStartGame(3, false));
+
+        var firstRedactor = room.RedactorPlayerId!;
+        var estimators = room.Players
+            .Where(p => p.PlayerId != firstRedactor)
+            .OrderBy(p => p.Name)
+            .ToList();
+
+        room.TrySubmitQuestion(firstRedactor, "¿Cuánto es?");
+        room.TrySubmitGuess(estimators[0].PlayerId, 400); // lejos
+        room.TrySubmitGuess(estimators[1].PlayerId, 101); // más cercano
+        Assert.NotNull(room.FinalizeRound(100, "src", string.Empty));
+        Assert.True(room.TryAdvanceRound());
+
+        Assert.Equal(estimators[1].PlayerId, room.RedactorPlayerId);
+        Assert.NotEqual(firstRedactor, room.RedactorPlayerId);
+    }
+
+    [Fact]
+    public void Round2_TiedClosest_PicksFirstInRankingByName()
+    {
+        var room = new Room { Code = "TIE1" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryAddPlayer(new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" });
+        Assert.True(room.TryStartGame(3, false));
+
+        var firstRedactor = room.RedactorPlayerId!;
+        var estimators = room.Players
+            .Where(p => p.PlayerId != firstRedactor)
+            .OrderBy(p => p.Name)
+            .ToList();
+
+        room.TrySubmitQuestion(firstRedactor, "¿Cuánto es?");
+        room.TrySubmitGuess(estimators[0].PlayerId, 150);
+        room.TrySubmitGuess(estimators[1].PlayerId, 150);
+        var result = room.FinalizeRound(100, "src", string.Empty);
+        Assert.NotNull(result);
+        Assert.True(result.Ranking.All(r => r.Rank == 1));
+        Assert.True(room.TryAdvanceRound());
+
+        Assert.Equal(estimators[0].PlayerId, room.RedactorPlayerId);
+    }
+
+    [Fact]
+    public void Round2_DisconnectedClosest_FallsBackToNextClosestConnected()
+    {
+        var room = new Room { Code = "DISC" };
+        room.TryAddPlayer(new Player { Name = "Ana", ConnectionId = "c1", PlayerId = "p1" });
+        room.TryAddPlayer(new Player { Name = "Bob", ConnectionId = "c2", PlayerId = "p2" });
+        room.TryAddPlayer(new Player { Name = "Carlos", ConnectionId = "c3", PlayerId = "p3" });
+        Assert.True(room.TryStartGame(3, false));
+
+        var firstRedactor = room.RedactorPlayerId!;
+        var estimators = room.Players
+            .Where(p => p.PlayerId != firstRedactor)
+            .OrderBy(p => p.Name)
+            .ToList();
+        var closest = estimators[1];
+        var nextClosest = estimators[0];
+
+        room.TrySubmitQuestion(firstRedactor, "¿Cuánto es?");
+        room.TrySubmitGuess(nextClosest.PlayerId, 400);
+        room.TrySubmitGuess(closest.PlayerId, 101);
+        Assert.NotNull(room.FinalizeRound(100, "src", string.Empty));
+
+        room.MarkDisconnected(closest.ConnectionId);
+        Assert.True(room.TryAdvanceRound());
+
+        Assert.Equal(nextClosest.PlayerId, room.RedactorPlayerId);
     }
 
     [Fact]
