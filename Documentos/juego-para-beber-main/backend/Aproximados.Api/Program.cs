@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -36,14 +37,15 @@ builder.Services.AddSignalR(options =>
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()
-    ?? ["http://localhost:4200"];
+    ?? ["http://localhost:4200", "http://localhost:4300"];
+var allowLanOrigins = builder.Environment.IsDevelopment();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AproximadosPolicy", policy =>
     {
         policy
-            .SetIsOriginAllowed(origin => IsAllowedCorsOrigin(origin, allowedOrigins))
+            .SetIsOriginAllowed(origin => IsAllowedCorsOrigin(origin, allowedOrigins, allowLanOrigins))
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -64,7 +66,7 @@ app.Use(async (context, next) =>
 {
     var origin = context.Request.Headers.Origin.ToString();
     if (context.Request.Path.StartsWithSegments("/gamehub") &&
-        !string.IsNullOrEmpty(origin) && !IsAllowedCorsOrigin(origin, allowedOrigins))
+        !string.IsNullOrEmpty(origin) && !IsAllowedCorsOrigin(origin, allowedOrigins, allowLanOrigins))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return;
@@ -88,12 +90,23 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime
 
 app.Run();
 
-static bool IsAllowedCorsOrigin(string? origin, string[] configuredOrigins)
+static bool IsAllowedCorsOrigin(string? origin, string[] configuredOrigins, bool allowLan)
 {
     if (string.IsNullOrWhiteSpace(origin)) return false;
     if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-
     if (uri.Scheme is not ("https" or "http")) return false;
+    if (configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+    if (!allowLan || uri.Scheme != "http") return false;
+    if (uri.Host is "localhost" or "127.0.0.1" or "::1") return true;
+    return IPAddress.TryParse(uri.Host, out var ip) && IsPrivateIpv4(ip);
+}
 
-    return configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
+static bool IsPrivateIpv4(IPAddress ip)
+{
+    if (ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return false;
+    var bytes = ip.GetAddressBytes();
+    return bytes[0] == 10
+        || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+        || (bytes[0] == 192 && bytes[1] == 168)
+        || (bytes[0] == 169 && bytes[1] == 254);
 }

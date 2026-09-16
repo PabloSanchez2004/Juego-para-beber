@@ -19,4 +19,6 @@
 .lobby-actions { background: linear-gradient(0deg,#151914 80%,#15191400); padding-inline: 24px; }
 .lobby-actions .btn-primary { display: flex; align-items: center; justify-content: space-between; }
 .lobby-actions .card { padding: 16px; }
-@media(max-width:380px) { .lobby-page,.lobby-actions { padding-inline: 16px; } .game-mode-option { padding: 12px; } .game-mode-option strong { font-size: 13px; } .game-mode-option > span:not(.mode-icon) { font-size: 11px; } }
+@media(max-width:420px) {
+  .game-mode-grid { grid-template-columns: 1fr; }
+}

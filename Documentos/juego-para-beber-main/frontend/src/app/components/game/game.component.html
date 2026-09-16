@@ -1,52 +1,37 @@
-<!-- Pantalla de juego: WritingQuestion y CollectingGuesses -->
-<div class="min-h-screen flex flex-col px-4 py-6 animate-fade-in">
+<div class="game-page min-h-screen flex flex-col animate-fade-in">
 
   @if (state(); as s) {
 
-    <!-- Header: ronda y progreso -->
-    <div class="mb-6">
+    <header class="game-top">
       <div class="flex items-center justify-between mb-2">
-        <span class="text-gray-500 text-sm font-semibold uppercase tracking-wide">
-          Ronda {{ s.roundNumber }} / {{ s.maxRounds }}
-        </span>
-        <span class="text-gray-500 text-sm font-semibold tracking-wider">{{ s.roomCode }}</span>
+        <span class="eyebrow">Ronda {{ s.roundNumber }} / {{ s.maxRounds }}</span>
+        <span class="eyebrow">{{ s.roomCode }}</span>
       </div>
-      <!-- Barra de progreso de rondas -->
       <div class="progress-bar">
-        <div
-          class="progress-fill"
-          [style.width.%]="(s.roundNumber / s.maxRounds) * 100">
-        </div>
+        <div class="progress-fill" [style.width.%]="(s.roundNumber / s.maxRounds) * 100"></div>
       </div>
-    </div>
+    </header>
 
-    <p class="mode-note text-gray-400 text-xs mb-5">
-      {{ s.redactorCanGuess ? 'Todos juegan · el redactor también responde' : 'Modo clásico · el redactor no responde' }}
+    <p class="mode-note">
+      {{ s.redactorCanGuess ? 'Todos responden · el redactor también estima' : 'Solo pregunta · el redactor no responde' }}
     </p>
 
-    <!-- ── FASE: WritingQuestion ── -->
     @if (isWritingPhase()) {
-
       @if (isRedactor()) {
-        <!-- Redactor: escribe la pregunta -->
         <div class="flex-1 flex flex-col animate-slide-up">
           <div class="card mb-6">
-            <div class="flex items-center gap-3 mb-4">
-              <span class="text-3xl">✍️</span>
-              <div>
-                <h2 class="text-xl font-bold text-white">Eres el Redactor</h2>
-                <p class="text-gray-400 text-sm">
-                  @if (isFollowUpRound()) {
-                    Te toca preparar la siguiente pregunta
-                  } @else {
-                    Escribe una pregunta de respuesta numérica
-                  }
-                </p>
-              </div>
-            </div>
-            <p class="text-gray-500 text-xs">
-              Ejemplos: "¿Cuántos satélites naturales tiene Marte?",
-              "¿En qué año se fundó la ONU?", "¿Cuántos huesos tiene el cuerpo humano?"
+            <p class="eyebrow mb-2">Te toca preguntar</p>
+            <h2 class="text-xl font-bold text-white">Eres el redactor</h2>
+            <p class="text-gray-400 text-sm mt-2">
+              @if (isFollowUpRound()) {
+                Inventa la siguiente pregunta. La respuesta tiene que ser un número comprobable.
+              } @else {
+                Pregunta cuya respuesta sea un número exacto. La IA buscará el dato.
+              }
+            </p>
+            <p class="text-gray-500 text-xs mt-3">
+              Ejemplos: «¿Cuántos satélites naturales tiene Marte?»,
+              «¿En qué año se fundó la ONU?», «¿Cuántos huesos tiene el cuerpo humano?»
             </p>
           </div>
 
@@ -57,22 +42,18 @@
             <textarea
               id="question-input"
               class="input-field resize-none h-32 text-base"
-              placeholder="¿Cuántos...? ¿En qué año...? ¿Cuánto pesa...?"
+              placeholder="¿Cuántos…? ¿En qué año…? ¿Cuánto pesa…?"
               [value]="question()"
               (input)="question.set($any($event.target).value)"
               maxlength="300"
               [disabled]="questionSent() || loading()"
               aria-label="Escribe tu pregunta aquí">
             </textarea>
-            <p class="text-gray-600 text-xs mt-1 text-right">
-              {{ question().length }}/300
-            </p>
+            <p class="text-gray-600 text-xs mt-1 text-right">{{ question().length }}/300</p>
           </div>
 
           @if (errorMsg()) {
-            <div class="alert-error my-4 animate-shake" role="alert">
-              ⚠️ {{ errorMsg() }}
-            </div>
+            <div class="alert-error my-4 animate-shake" role="alert">{{ errorMsg() }}</div>
           }
 
           @if (!questionSent()) {
@@ -88,48 +69,32 @@
                   <span class="loading-dot" style="animation-delay:300ms"></span>
                 </span>
               } @else {
-                📤 Lanzar pregunta
+                Lanzar pregunta <span aria-hidden="true">↗</span>
               }
             </button>
           } @else {
-            <div class="btn-muted mt-4 text-center">
-              ✅ Pregunta enviada. Esperando estimaciones...
-            </div>
+            <div class="btn-muted mt-4 text-center">Pregunta enviada. Esperando estimaciones…</div>
           }
         </div>
-
       } @else {
-        <!-- Estimador: espera la pregunta -->
-        <div class="flex-1 flex flex-col items-center justify-center animate-slide-up">
-          <div class="text-6xl mb-6 animate-bounce-slow">⏳</div>
-          <h2 class="text-2xl font-bold text-white mb-2">Espera un momento</h2>
-          <p class="text-gray-400 text-center">
-            El Redactor está preparando la pregunta...
-          </p>
-
-          <!-- Quién es el Redactor -->
-          <div class="mt-6 card text-center">
-            <p class="text-gray-500 text-sm">Redactor esta ronda</p>
+        <div class="wait-panel animate-slide-up">
+          <div class="loading-dot mb-2" aria-hidden="true"></div>
+          <h2>Espera un momento</h2>
+          <p>{{ redactorName() || 'El redactor' }} está inventando la pregunta.</p>
+          <div class="card text-center mt-4 w-full">
+            <p class="eyebrow">Redactor esta ronda</p>
             <p class="text-lime-400 font-black text-xl mt-1">{{ redactorName() }}</p>
           </div>
         </div>
       }
     }
 
-    <!-- ── FASE: CollectingGuesses ── -->
     @if (isCollectingPhase()) {
-
-      <!-- Pregunta visible para todos -->
-      <div class="card mb-6 animate-slide-up">
-        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">
-          Pregunta de la ronda
-        </p>
-        <p class="text-white text-xl font-bold leading-snug">
-          {{ s.currentQuestion }}
-        </p>
+      <div class="card question-card mb-6 animate-slide-up">
+        <p class="eyebrow mb-2">Pregunta de la ronda</p>
+        <p class="text-white text-xl font-bold leading-snug">{{ s.currentQuestion }}</p>
       </div>
 
-      <!-- Solo se comparte el número de respuestas, nunca las cifras ajenas. -->
       <div class="mb-6">
         <div class="flex justify-between text-sm text-gray-500 mb-2">
           <span>Estimaciones recibidas</span>
@@ -141,9 +106,7 @@
       </div>
 
       @if (canGuess()) {
-        <!-- Estimador: envía su estimación -->
         <div class="flex-1 flex flex-col animate-slide-up">
-
           @if (!guessSent()) {
             <div class="flex-1 flex flex-col">
               <label for="guess-input" class="block text-gray-400 text-sm font-black mb-3 uppercase tracking-wide text-center">
@@ -167,21 +130,15 @@
 
               <p id="guess-preview" class="text-center mt-4 min-h-[2.5rem] px-1">
                 @if (guessPreview()) {
-                  <span class="text-lime-400 text-2xl font-black leading-tight block">
-                    {{ guessPreview() }}
-                  </span>
+                  <span class="text-lime-400 text-2xl font-black leading-tight block">{{ guessPreview() }}</span>
                 } @else {
-                  <span class="text-slate-500 text-sm">
-                    Usa coma para decimales. 7000000 se lee como 7 millones.
-                  </span>
+                  <span class="text-slate-500 text-sm">Usa coma para decimales. 7000000 se lee como 7 millones.</span>
                 }
               </p>
             </div>
 
             @if (errorMsg()) {
-              <div class="alert-error my-4 animate-shake" role="alert">
-                ⚠️ {{ errorMsg() }}
-              </div>
+              <div class="alert-error my-4 animate-shake" role="alert">{{ errorMsg() }}</div>
             }
 
             <button
@@ -196,32 +153,25 @@
                   <span class="loading-dot" style="animation-delay:300ms"></span>
                 </span>
               } @else {
-                🎯 Enviar estimación
+                Enviar estimación <span aria-hidden="true">↗</span>
               }
             </button>
-
           } @else {
-            <!-- Estimación enviada: esperar -->
-            <div class="flex-1 flex flex-col items-center justify-center">
-              <div class="text-6xl mb-4">✅</div>
-              <h2 class="text-2xl font-bold text-white mb-2">¡Enviado!</h2>
-              <p class="text-gray-400 text-center">
-                Tu estimación está guardada. Esperando al resto...
-              </p>
-              <div class="mt-6 card text-center w-full">
-                <p class="text-gray-500 text-sm">Tu estimación</p>
-                <p class="text-white font-black text-4xl mt-1 tabular-nums">{{ formattedResolvedGuess() }}</p>
-                @if (guessPreview() && guessPreview() !== formattedResolvedGuess()) {
-                  <p class="text-lime-400 text-sm font-black mt-2">{{ guessPreview() }}</p>
-                }
-              </div>
+            <div class="wait-panel">
+              <p class="eyebrow">Tu número está guardado</p>
+              <p class="guess-sent">{{ formattedResolvedGuess() }}</p>
+              @if (guessPreview() && guessPreview() !== formattedResolvedGuess()) {
+                <p class="text-lime-400 text-sm font-black">{{ guessPreview() }}</p>
+              }
+              <p>Esperando al resto. Las cifras ajenas siguen en secreto.</p>
             </div>
           }
         </div>
       } @else {
         <div class="card text-center mb-5">
+          <p class="eyebrow mb-2">Modo solo pregunta</p>
           <p class="text-white font-semibold mb-2">Tu pregunta está en juego</p>
-          <p class="text-gray-400 text-sm">En el modo clásico observas esta ronda. Las estimaciones permanecen secretas hasta el veredicto.</p>
+          <p class="text-gray-400 text-sm">Observas esta ronda. Las estimaciones permanecen secretas hasta el veredicto.</p>
         </div>
       }
 
@@ -242,12 +192,9 @@
     }
 
   } @else {
-    <!-- Cargando -->
-    <div class="flex-1 flex items-center justify-center">
-      <div class="text-center">
-        <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
-        <p class="text-gray-400">Cargando partida...</p>
-      </div>
+    <div class="wait-panel">
+      <div class="loading-dot" aria-hidden="true"></div>
+      <p class="text-gray-400">Cargando partida…</p>
     </div>
   }
 

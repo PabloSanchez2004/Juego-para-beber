@@ -513,9 +513,13 @@ public sealed class GameHub : Hub
 
         if (!hasMore)
         {
+            if (room.Phase == GamePhase.ShowingResults && room.RoundNumber >= room.MaxRounds)
+            {
+                await SendError("Es la última ronda. Mirad la clasificación final.");
+                return;
+            }
             if (room.Phase != GamePhase.Closed) return;
             await BroadcastState(room, excludePlayerId: null);
-            // Juego terminado
             await Clients.Group(room.Code).SendAsync("RoomClosed", "¡Juego terminado! Gracias por jugar.");
             _roomManager.RemoveRoom(room.Code);
             return;

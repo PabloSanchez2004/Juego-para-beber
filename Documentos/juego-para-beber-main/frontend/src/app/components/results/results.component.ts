@@ -296,25 +296,21 @@ export class ResultsComponent implements OnInit, OnDestroy {
     return 'neutral';
   }
 
-  /** Texto del badge de ganador: «🎯 ¡Reparte 1 trago!» */
+  /** Texto del badge de ganador. */
   winnerBadge(): string {
     const n = this.drinksToDistribute();
-    return `🎯 ¡Reparte ${n} ${n === 1 ? 'trago' : 'tragos'}!`;
+    return `¡Reparte ${n} ${n === 1 ? 'trago' : 'tragos'}!`;
   }
 
-  /** Texto del badge de perdedor: «🍺 ¡Te toca beber!» */
+  /** Texto del badge de perdedor. */
   loserBadge(): string {
-    const dry = this.state()?.isAlcoholFreeRoom;
-    return `${dry ? '🧃' : '🍺'} ¡Te toca beber!`;
+    return '¡Te toca beber!';
   }
 
   formatError(pct: number): string {
     if (!Number.isFinite(pct)) return 'Fuera de escala';
-    if (pct === 0) return '¡Exacto! 🎯';
-    if (pct < 5) return `${pct.toFixed(1)}% 🔥`;
-    if (pct < 20) return `${pct.toFixed(1)}% 👍`;
-    if (pct < 50) return `${pct.toFixed(1)}% 😬`;
-    return `${pct.toFixed(1)}% 💀`;
+    if (pct === 0) return 'Exacto';
+    return `${pct.toFixed(1)}%`;
   }
 
   /** Color del porcentaje de error según lo lejos que se quedó. */

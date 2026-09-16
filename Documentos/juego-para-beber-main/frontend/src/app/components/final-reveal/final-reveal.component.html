@@ -35,7 +35,7 @@
     <!-- Cabecera -->
     <header class="px-5 pt-6 pb-4 text-center shrink-0">
       @if (done()) {
-        <p class="text-4xl reveal-item" aria-hidden="true">🏆</p>
+        <p class="eyebrow reveal-item">Fin de la previa</p>
         <h2 class="text-2xl font-extrabold text-white tracking-tight mt-1 reveal-item">
           Clasificación final
         </h2>
@@ -107,7 +107,7 @@
                     <p class="text-slate-400 text-xs mt-0.5 leading-snug">{{ row.comment }}</p>
                   }
                   <p *ngIf="isChampion(row)" class="text-gold-300 text-xs font-bold mt-1 tracking-wide">
-                    🏆 CAMPEÓN
+                    CAMPEÓN
                   </p>
                 </div>
 

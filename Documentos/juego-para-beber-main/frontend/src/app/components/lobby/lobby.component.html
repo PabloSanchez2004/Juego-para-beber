@@ -1,5 +1,5 @@
 <!-- Sala de espera -->
-<div class="lobby-page min-h-screen flex flex-col px-4 pt-8 pb-40 safe-top animate-fade-in">
+<div class="lobby-page min-h-screen flex flex-col px-4 pt-8 pb-52 safe-top animate-fade-in">
 
   @if (state(); as s) {
     <!-- Header -->
@@ -155,9 +155,9 @@
 
     <!-- Error -->
     @if (errorMsg()) {
-      <div class="alert-error mb-4 animate-shake" role="alert">
-        ⚠️ {{ errorMsg() }}
-      </div>
+        <div class="alert-error mb-4 animate-shake" role="alert">
+          {{ errorMsg() }}
+        </div>
     }
 
     <div class="lobby-actions fixed inset-x-0 bottom-0 z-20 px-4 pt-8 pb-4 safe-bottom

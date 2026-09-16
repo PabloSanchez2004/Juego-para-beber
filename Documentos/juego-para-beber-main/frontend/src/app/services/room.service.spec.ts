@@ -128,4 +128,29 @@ describe('RoomService', () => {
     expect(localPlayerOnClose).toBeNull();
   });
 
+  it('normalizes lastResult drink assignments from either serializer', () => {
+    (service as any).registerHandlers();
+    const update = mockHub.on.calls.allArgs().find(args => args[0] === 'GameStateUpdated')![1];
+    update({
+      RoomCode: 'ABCD',
+      Phase: 3,
+      LastResult: {
+        RoundNumber: 1,
+        Question: '¿Cuántos?',
+        CorrectAnswer: 10,
+        Ranking: [{ PlayerId: 'p1', PlayerName: 'Ana', Guess: 10, Rank: 1 }],
+        DrinksToDistribute: 1,
+        DrinksDistributedByWinner: { p1: 1 },
+        DrinkAssignments: [{ FromPlayerId: 'p1', ToPlayerId: 'p2', Amount: 1 }],
+      },
+    });
+    expect(service.currentState?.lastResult?.drinksToDistribute).toBe(1);
+    expect(service.currentState?.lastResult?.drinkAssignments[0]).toEqual({
+      fromPlayerId: 'p1',
+      toPlayerId: 'p2',
+      amount: 1,
+    });
+    expect(service.currentState?.lastResult?.ranking[0].playerName).toBe('Ana');
+  });
+
 });

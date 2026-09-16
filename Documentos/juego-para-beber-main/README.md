@@ -12,7 +12,7 @@ Juego multijugador de estimaciones numéricas para 2–12 personas. Angular 21 +
 4. Las estimaciones permanecen privadas hasta el resultado. La menor desviación gana **1 punto** y permite repartir **1 trago** a otra persona.
 5. El último bebe 1 trago; un error de al menos 1000 % supone 2. Quienes empatan comparten puesto y los ganadores empatados reciben su punto y reparto. Un ganador no recibe castigo de perdedor.
 6. Si todos los demás participantes responden con un error de como máximo el 1 %, el redactor recibe 1 trago por pregunta demasiado fácil.
-7. El ganador conectado redacta la siguiente pregunta. Los empates se resuelven de forma estable para elegir turno. El anfitrión avanza cuando termina el reparto de los ganadores conectados.
+7. El ganador conectado redacta la siguiente pregunta. Los empates se resuelven de forma estable para elegir turno. El anfitrión avanza cuando termina el reparto de los ganadores conectados. Tras la última ronda la sala se queda en resultados para el podio; no se cierra sola.
 
 El error se calcula respecto al valor absoluto de la respuesta; para respuesta cero se usa denominador 1. Se aceptan números negativos, coma decimal y hasta ±10¹⁵. Las respuestas sin dato verificable vuelven a la escritura de pregunta sin puntuar.
 
@@ -26,7 +26,7 @@ export GEMINI_API_KEY='tu-clave'
 ./scripts/dev.sh
 ```
 
-Abre `http://localhost:4300`. El script muestra también la dirección para móviles en la misma Wi-Fi y configura sus orígenes permitidos. Sin clave se pueden probar las salas, modos y estimaciones; al consultar una pregunta se muestra el error y se permite escribir otra.
+Abre `http://localhost:4300`. El script muestra también la dirección para móviles en la misma Wi-Fi. En desarrollo el backend admite orígenes de la red local (`192.168.x`, `10.x`, etc.) y el frontend escucha en `0.0.0.0:4300`. Sin clave se pueden probar las salas, modos y estimaciones; al consultar una pregunta se muestra el error y se permite escribir otra.
 
 El modelo se conserva fijado en **`gemini-3.5-flash-lite`**. El cliente no recibe la clave. No guardes credenciales en archivos del frontend.
 

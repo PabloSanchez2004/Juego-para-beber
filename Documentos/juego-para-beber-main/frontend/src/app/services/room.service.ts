@@ -532,11 +532,66 @@ function normalizeGameState(raw: unknown): GameStateDto | null {
       guess: (p['guess'] ?? p['Guess'] ?? null) as number | null,
       isAdmin: Boolean(p['isAdmin'] ?? p['IsAdmin'] ?? false),
     })),
-    lastResult: (src['lastResult'] ?? src['LastResult'] ?? null) as GameStateDto['lastResult'],
+    lastResult: normalizeLastResult(src['lastResult'] ?? src['LastResult']),
     maxRounds: Number(src['maxRounds'] ?? src['MaxRounds'] ?? 10),
     isAlcoholFreeRoom: Boolean(src['isAlcoholFreeRoom'] ?? src['IsAlcoholFreeRoom'] ?? false),
     redactorCanGuess: Boolean(src['redactorCanGuess'] ?? src['RedactorCanGuess'] ?? false),
     guessesSubmitted: Number(src['guessesSubmitted'] ?? src['GuessesSubmitted'] ?? 0),
     guessesExpected: Number(src['guessesExpected'] ?? src['GuessesExpected'] ?? 0),
+  };
+}
+
+function pick(src: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (key in src && src[key] !== undefined) return src[key];
+  }
+  return undefined;
+}
+
+function normalizeLastResult(raw: unknown): GameStateDto['lastResult'] {
+  if (!raw || typeof raw !== 'object') return null;
+  const src = raw as Record<string, unknown>;
+  const rankingRaw = (pick(src, 'ranking', 'Ranking') ?? []) as unknown[];
+  const assignmentsRaw = (pick(src, 'drinkAssignments', 'DrinkAssignments') ?? []) as unknown[];
+  const distributedRaw = (pick(src, 'drinksDistributedByWinner', 'DrinksDistributedByWinner') ?? {}) as Record<string, unknown>;
+  const distributed: Record<string, number> = {};
+  for (const [key, value] of Object.entries(distributedRaw)) {
+    distributed[key] = Number(value) || 0;
+  }
+
+  return {
+    roundNumber: Number(pick(src, 'roundNumber', 'RoundNumber') ?? 0),
+    question: String(pick(src, 'question', 'Question') ?? ''),
+    correctAnswer: Number(pick(src, 'correctAnswer', 'CorrectAnswer') ?? 0),
+    answerSource: String(pick(src, 'answerSource', 'AnswerSource') ?? ''),
+    ranking: rankingRaw.map(item => {
+      const r = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+      return {
+        playerId: String(pick(r, 'playerId', 'PlayerId') ?? ''),
+        playerName: String(pick(r, 'playerName', 'PlayerName') ?? ''),
+        guess: Number(pick(r, 'guess', 'Guess') ?? 0),
+        correctAnswer: Number(pick(r, 'correctAnswer', 'CorrectAnswer') ?? 0),
+        relativeErrorPercent: Number(pick(r, 'relativeErrorPercent', 'RelativeErrorPercent') ?? 0),
+        rank: Number(pick(r, 'rank', 'Rank') ?? 0),
+        drinksThisRound: Number(pick(r, 'drinksThisRound', 'DrinksThisRound') ?? 0),
+        penaltyDescription: String(pick(r, 'penaltyDescription', 'PenaltyDescription') ?? ''),
+      };
+    }),
+    sarcasticComment: String(pick(src, 'sarcasticComment', 'SarcasticComment') ?? ''),
+    winnerName: String(pick(src, 'winnerName', 'WinnerName') ?? ''),
+    loserName: String(pick(src, 'loserName', 'LoserName') ?? ''),
+    drinksToDistribute: Number(pick(src, 'drinksToDistribute', 'DrinksToDistribute') ?? 0),
+    loserPenalty: Number(pick(src, 'loserPenalty', 'LoserPenalty') ?? 0),
+    redactorPenalty: Number(pick(src, 'redactorPenalty', 'RedactorPenalty') ?? 0),
+    redactorPenaltyDescription: String(pick(src, 'redactorPenaltyDescription', 'RedactorPenaltyDescription') ?? ''),
+    drinksDistributedByWinner: distributed,
+    drinkAssignments: assignmentsRaw.map(item => {
+      const a = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+      return {
+        fromPlayerId: String(pick(a, 'fromPlayerId', 'FromPlayerId') ?? ''),
+        toPlayerId: String(pick(a, 'toPlayerId', 'ToPlayerId') ?? ''),
+        amount: Number(pick(a, 'amount', 'Amount') ?? 0),
+      };
+    }),
   };
 }

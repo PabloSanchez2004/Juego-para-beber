@@ -566,32 +566,26 @@ public sealed class Room
         }
     }
 
-    /// <summary>
-    /// Avanza a la siguiente ronda o cierra el juego si se alcanzó el máximo.
-    /// Devuelve true si hay más rondas, false si el juego terminó.
-    /// </summary>
     public bool HasPendingDistribution
     {
-        get
-        {
-            lock (_lock)
-                return _phase == GamePhase.ShowingResults && _lastResult is not null && _players.Count > 1 &&
-                    _lastResult.Ranking.Any(r => r.Rank == 1 && _players.TryGetValue(r.PlayerId, out var winner) && winner.IsConnected &&
-                        _lastResult.DrinksDistributedByWinner.GetValueOrDefault(r.PlayerId) < _lastResult.DrinksToDistribute);
-        }
+        get { lock (_lock) return HasPendingDistributionUnlocked(); }
     }
+
+    private bool HasPendingDistributionUnlocked() =>
+        _phase == GamePhase.ShowingResults && _lastResult is not null && _players.Count > 1 &&
+        _lastResult.Ranking.Any(r => r.Rank == 1 && _players.TryGetValue(r.PlayerId, out var winner) && winner.IsConnected &&
+            _lastResult.DrinksDistributedByWinner.GetValueOrDefault(r.PlayerId) < _lastResult.DrinksToDistribute);
 
     public bool TryAdvanceRound()
     {
         lock (_lock)
         {
-            if (_phase != GamePhase.ShowingResults || HasPendingDistribution) return false;
+            if (_phase != GamePhase.ShowingResults || HasPendingDistributionUnlocked()) return false;
 
+            // La última ronda se queda en resultados para el podio. Cerrar aquí
+            // expulsaría a todo el mundo antes de ver la clasificación.
             if (_roundNumber >= MaxRounds)
-            {
-                _phase = GamePhase.Closed;
                 return false;
-            }
 
             _roundNumber++;
             var nextRedactorId = PickNextRedactorPlayerId();

@@ -13,32 +13,16 @@ import { GamePhase } from './models/game.models';
   standalone: true,
   imports: [RouterOutlet, CommonModule],
   template: `
-    <div class="min-h-screen safe-top safe-bottom">
-      <!-- Banner de reconexión -->
+    <div class="app-shell min-h-screen safe-top safe-bottom">
       @if (isReconnecting) {
-        <div class="fixed top-0 left-0 right-0 z-50 bg-amber-400/95 text-ink-950
-                    text-center py-2 px-4 text-sm font-semibold animate-pulse">
-          🔄 Reconectando... No cierres la app
-        </div>
+        <div class="status-banner is-warn" role="status">Reconectando. No cierres la app.</div>
       }
-
-      <!-- Banner de error de conexión -->
       @if (connectionFailed) {
-        <div class="fixed top-0 left-0 right-0 z-50 bg-red-600/90 text-white
-                    text-center py-2 px-4 text-sm font-semibold">
-          ❌ Sin conexión. Recarga la página para reintentar.
-        </div>
+        <div class="status-banner is-error" role="alert">Sin conexión. Recarga la página para reintentar.</div>
       }
-
-      <!-- Expulsado por el anfitrión -->
       @if (kickedMessage) {
-        <div class="fixed top-0 left-0 right-0 z-[60] bg-red-600 text-white
-                    text-center py-3 px-4 text-sm font-semibold shadow-elevated"
-             role="alert">
-          🚫 {{ kickedMessage }}
-        </div>
+        <div class="status-banner is-error is-kicked" role="alert">{{ kickedMessage }}</div>
       }
-
       <router-outlet />
     </div>
   `,

@@ -180,12 +180,12 @@ describe('ResultsComponent', () => {
   it('badges should carry the drinking mechanic text', () => {
     gameState$.next({ ...mockState, lastResult: { ...mockResult, drinksToDistribute: 1 } });
     fixture.detectChanges();
-    expect(component.winnerBadge()).toBe('🎯 ¡Reparte 1 trago!');
-    expect(component.loserBadge()).toBe('🍺 ¡Te toca beber!');
+    expect(component.winnerBadge()).toBe('¡Reparte 1 trago!');
+    expect(component.loserBadge()).toBe('¡Te toca beber!');
 
     gameState$.next({ ...mockState, isAlcoholFreeRoom: true });
     fixture.detectChanges();
-    expect(component.loserBadge()).toBe('🧃 ¡Te toca beber!');
+    expect(component.loserBadge()).toBe('¡Te toca beber!');
   });
 
   it('should render winner and loser badges in the template', () => {
@@ -228,7 +228,6 @@ describe('ResultsComponent', () => {
 
   it('formatError should handle large error', () => {
     expect(component.formatError(75)).toContain('75.0%');
-    expect(component.formatError(75)).toContain('💀');
   });
 
   it('should call nextRound on service', async () => {

@@ -1,14 +1,41 @@
 :host { display: block; }
-:host > div { padding: 28px 24px max(24px, env(safe-area-inset-bottom)); }
-:host > div > div:first-child { padding-bottom: 22px; border-bottom: 1px solid #36402f; }
-:host > div > div:first-child span { font-size: 11px; letter-spacing: .08em; }
+.game-page { padding: 28px 24px max(24px, env(safe-area-inset-bottom)); }
+.game-top { padding-bottom: 18px; border-bottom: 1px solid #36402f; margin-bottom: 18px; }
+.game-top .eyebrow { font-size: 11px; letter-spacing: .08em; }
 textarea.input-field { min-height: 190px; font-size: 18px; line-height: 1.6; padding: 20px; }
 label { font-size: 11px !important; letter-spacing: .12em; }
-#guess-input { background: #27331e; border-color: #64794b; color: #e8f7bb; font-size: clamp(38px, 12vw, 70px); letter-spacing: -.045em; border-radius: 20px; min-height: 144px; }
+#guess-input {
+  background: #27331e;
+  border-color: #64794b;
+  color: #e8f7bb;
+  font-size: clamp(38px, 12vw, 70px);
+  letter-spacing: -.045em;
+  border-radius: 20px;
+  min-height: 144px;
+}
 #guess-preview { overflow-wrap: anywhere; }
-.btn-primary { margin-top: 24px; }
-.mode-note { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; background: #2b3425; border: 1px solid #44523a; border-radius: 7px; color: #c4d0b5; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+.btn-primary { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.mode-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  margin-bottom: 18px;
+  background: #2b3425;
+  border: 1px solid #44523a;
+  border-radius: 7px;
+  color: #c4d0b5;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
 .mode-note::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #d8f36a; }
+.question-card { background: #f1f0e0; border-color: #f1f0e0; color: #242b1d; }
+.question-card .eyebrow { color: #61704d; }
+.question-card .text-white { color: #242b1d; }
 .card p { overflow-wrap: anywhere; }
-@media(min-width:700px) { :host > div { padding-block: 40px; } }
-@media(max-width:380px) { :host > div { padding-inline: 16px; } #guess-input { padding-inline: 10px; } }
+@media (min-width: 700px) { .game-page { padding-block: 40px; } }
+@media (max-width: 380px) {
+  .game-page { padding-inline: 16px; }
+  #guess-input { padding-inline: 10px; }
+}

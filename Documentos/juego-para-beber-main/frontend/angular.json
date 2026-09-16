@@ -57,8 +57,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "2kB",
-                  "maximumError": "4kB"
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
                 }
               ],
               "outputHashing": "all",
@@ -86,6 +86,11 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "host": "0.0.0.0",
+            "port": 4300,
+            "disableHostCheck": true
+          },
           "configurations": {
             "production": {
               "buildTarget": "aproximados:build:production"

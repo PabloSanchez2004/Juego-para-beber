@@ -201,6 +201,23 @@ public class GameRulesTests
     }
 
     [Fact]
+    public void LastRoundStaysInResultsForTheFinalReveal()
+    {
+        var room = new Room { Code = "FIN1" };
+        Assert.True(room.TryAddPlayer(new Player { Name = "Ana", PlayerId = "p1", ConnectionId = "c1" }));
+        Assert.True(room.TryAddPlayer(new Player { Name = "Bob", PlayerId = "p2", ConnectionId = "c2" }));
+        Assert.True(room.TryStartGame(1, false));
+        Assert.True(room.TrySubmitQuestion("p1", "¿Cuántos?"));
+        Assert.True(room.TrySubmitGuess("p2", 10).Ok);
+        Assert.NotNull(room.FinalizeRound(10, "test", ""));
+        Assert.True(room.TryDistributeDrinks("p2", "p1", 1));
+        Assert.False(room.TryAdvanceRound());
+        Assert.Equal(GamePhase.ShowingResults, room.Phase);
+        Assert.Equal(1, room.RoundNumber);
+        Assert.NotNull(room.LastResult);
+    }
+
+    [Fact]
     public void ZeroAnswerDoesNotCreateFalseTiesForLargeGuesses()
     {
         var room = CreateRoom();
