@@ -48,6 +48,10 @@ export interface RoundResult {
   loserName: string;
   drinksToDistribute: number;
   loserPenalty: number;
+  redactorPenalty: number;
+  redactorPenaltyDescription: string;
+  drinksDistributedByWinner: Record<string, number>;
+  drinkAssignments: { fromPlayerId: string; toPlayerId: string; amount: number }[];
 }
 
 export interface GameStateDto {
@@ -62,6 +66,8 @@ export interface GameStateDto {
   lastResult: RoundResult | null;
   maxRounds: number;
   isAlcoholFreeRoom: boolean;
+  /** El redactor participa también en las estimaciones si está activado. */
+  redactorCanGuess: boolean;
   guessesSubmitted: number;
   guessesExpected: number;
 }

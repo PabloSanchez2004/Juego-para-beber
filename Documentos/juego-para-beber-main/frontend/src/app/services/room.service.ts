@@ -10,7 +10,6 @@ import {
   BehaviorSubject,
   Observable,
   Subject,
-  firstValueFrom,
 } from 'rxjs';
 import {
   ConnectionStatus,
@@ -81,6 +80,13 @@ export class RoomService implements OnDestroy {
 
   private async connectOnce(): Promise<void> {
     if (this._hub?.state === HubConnectionState.Connected) return;
+
+    // Stop a stale/reconnecting transport before creating a replacement.
+    // Otherwise its late callbacks can reclaim the same player's seat.
+    if (this._hub) {
+      await this._hub.stop().catch(() => undefined);
+      this._hub = null;
+    }
 
     this._connectionStatus$.next('connecting');
 
@@ -189,6 +195,13 @@ export class RoomService implements OnDestroy {
     await this._hub!.invoke('StartGame', rounds);
   }
 
+  async setRedactorCanGuess(enabled: boolean): Promise<void> {
+    await this.ensureConnected();
+    const code = this._gameState$.value?.roomCode ?? this._localPlayer?.roomCode;
+    if (!code) throw new Error('No estás en ninguna sala.');
+    await this._hub!.invoke('SetRedactorCanGuess', code, enabled);
+  }
+
   async submitQuestion(question: string): Promise<void> {
     await this.ensureConnected();
     await this._hub!.invoke('SubmitQuestion', question);
@@ -209,6 +222,11 @@ export class RoomService implements OnDestroy {
     await this._hub!.invoke('NextRound');
   }
 
+  async distributeDrinks(targetPlayerId: string, amount: number): Promise<void> {
+    await this.ensureConnected();
+    await this._hub!.invoke('DistributeDrinks', targetPlayerId, amount);
+  }
+
   /**
    * Olvida la sesión guardada sin avisar al servidor. Se usa cuando el jugador
    * abre un enlace de invitación a una sala distinta: sin esto la reconexión
@@ -221,12 +239,15 @@ export class RoomService implements OnDestroy {
   }
 
   async leaveRoom(): Promise<void> {
-    if (this._hub?.state === HubConnectionState.Connected) {
-      await this._hub.invoke('LeaveRoom');
+    try {
+      if (this._hub?.state === HubConnectionState.Connected) {
+        await this.invokeWithTimeout('LeaveRoom', INVOKE_TIMEOUT_MS);
+      }
+    } finally {
+      this._localPlayer = null;
+      this.clearStoredSession();
+      this._gameState$.next(null);
     }
-    this._localPlayer = null;
-    this._gameState$.next(null);
-    this.clearStoredSession();
   }
 
   // ── Handlers de eventos del servidor ──────────────────────────────────
@@ -307,17 +328,17 @@ export class RoomService implements OnDestroy {
 
     // Nos han echado: olvidar la sesión para que no intentemos reengancharnos.
     this._hub.on('Kicked', (reason: string) => {
-      this._gameState$.next(null);
       this._localPlayer = null;
       this.clearStoredSession();
+      this._gameState$.next(null);
       this._kicked$.next(reason || 'El anfitrión te ha sacado de la sala.');
     });
 
     this._hub.on('RoomClosed', (reason: string) => {
       this._error$.next(`Sala cerrada: ${reason}`);
-      this._gameState$.next(null);
       this._localPlayer = null;
       this.clearStoredSession();
+      this._gameState$.next(null);
     });
   }
 
@@ -422,6 +443,14 @@ export class RoomService implements OnDestroy {
 
   private getHubUrl(): string {
     const baseUrl = environment.apiUrl.replace(/\/$/, '');
+    // A phone on the same Wi-Fi must reach the development machine, not its
+    // own localhost or the production service.
+    if (!environment.production && typeof window !== 'undefined' &&
+        /^https?:\/\/localhost(?::\d+)?$/.test(baseUrl)) {
+      const api = new URL(baseUrl);
+      api.hostname = window.location.hostname;
+      return `${api.origin}/gamehub`;
+    }
     const hubUrl = `${baseUrl}/gamehub`;
     const runningOnProdHost =
       typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
@@ -506,6 +535,7 @@ function normalizeGameState(raw: unknown): GameStateDto | null {
     lastResult: (src['lastResult'] ?? src['LastResult'] ?? null) as GameStateDto['lastResult'],
     maxRounds: Number(src['maxRounds'] ?? src['MaxRounds'] ?? 10),
     isAlcoholFreeRoom: Boolean(src['isAlcoholFreeRoom'] ?? src['IsAlcoholFreeRoom'] ?? false),
+    redactorCanGuess: Boolean(src['redactorCanGuess'] ?? src['RedactorCanGuess'] ?? false),
     guessesSubmitted: Number(src['guessesSubmitted'] ?? src['GuessesSubmitted'] ?? 0),
     guessesExpected: Number(src['guessesExpected'] ?? src['GuessesExpected'] ?? 0),
   };

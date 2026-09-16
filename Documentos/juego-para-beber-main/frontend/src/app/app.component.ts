@@ -50,6 +50,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private subs = new Subscription();
   private kickedTimer: ReturnType<typeof setTimeout> | undefined;
+  private updateTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(
     private roomService: RoomService,
@@ -62,7 +63,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupServiceWorkerUpdates();
 
     // Recarga de Vercel / bloqueo de pantalla: si hay sesión, reconectar ya.
-    if (this.roomService.localPlayer) {
+    if (this.roomService.localPlayer && !window.location.pathname.startsWith('/join/')) {
       void this.roomService.connect().catch(err => {
         console.warn('[App] Conexión inicial fallida:', err);
       });
@@ -71,7 +72,12 @@ export class AppComponent implements OnInit, OnDestroy {
     // Navegar automáticamente según el estado del juego
     this.subs.add(
       this.roomService.gameState$.subscribe(state => {
-        if (!state) return;
+        if (!state) {
+          if (!this.roomService.localPlayer && /^\/(lobby|game|results)(?:\/|$)/.test(this.router.url)) {
+            this.router.navigate(['/']);
+          }
+          return;
+        }
         this.navigateToPhase(state.phase);
       })
     );
@@ -97,6 +103,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subs.unsubscribe();
     clearTimeout(this.kickedTimer);
+    clearInterval(this.updateTimer);
   }
 
   private setupAnalyticsPageViews(): void {
@@ -137,9 +144,9 @@ export class AppComponent implements OnInit, OnDestroy {
         })
     );
 
-    void this.swUpdate.checkForUpdate();
-    setInterval(() => {
-      void this.swUpdate.checkForUpdate();
+    void this.swUpdate.checkForUpdate().catch(() => undefined);
+    this.updateTimer = setInterval(() => {
+      void this.swUpdate.checkForUpdate().catch(() => undefined);
     }, 60 * 60 * 1000);
   }
 

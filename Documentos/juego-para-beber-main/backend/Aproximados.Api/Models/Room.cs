@@ -57,6 +57,7 @@ public sealed class Room
 
     public int MaxRounds { get; private set; } = DefaultMaxRounds;
     public bool IsAlcoholFreeRoom { get; private set; }
+    public bool RedactorCanGuess { get; private set; }
 
     // ── Propiedades de solo lectura (seguras sin lock para snapshot) ───────
 
@@ -80,6 +81,7 @@ public sealed class Room
         lock (_lock)
         {
             if (_phase == GamePhase.Closed) return JoinRejection.RoomClosed;
+            if (_phase != GamePhase.Lobby) return JoinRejection.GameStarted;
             if (_players.ContainsKey(player.PlayerId)) return JoinRejection.AlreadyJoined;
             if (_players.Count >= MaxPlayers) return JoinRejection.RoomFull;
             if (_players.Values.Any(p => p.Name.Equals(player.Name, StringComparison.OrdinalIgnoreCase)))
@@ -145,7 +147,7 @@ public sealed class Room
             if (!_players.TryRemove(playerId, out _)) return false;
 
             _lastActivity = DateTimeOffset.UtcNow;
-            EnsureAdmin();
+            RecoverAvailablePlayers();
             return true;
         }
     }
@@ -158,7 +160,7 @@ public sealed class Room
     private void EnsureAdmin()
     {
         var admins = _players.Values.Where(p => p.IsAdmin).ToList();
-        if (admins.Count == 1) return;
+        if (admins.Count == 1 && (admins[0].IsConnected || !_players.Values.Any(p => p.IsConnected))) return;
 
         foreach (var p in admins)
             p.IsAdmin = false;
@@ -167,6 +169,27 @@ public sealed class Room
                    ?? _players.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
 
         if (heir is not null) heir.IsAdmin = true;
+    }
+
+    // Mantiene los controles accesibles tras una desconexión o una salida.
+    // En una pregunta ya enviada conservamos al redactor para no alterar quién estima.
+    private void RecoverAvailablePlayers()
+    {
+        EnsureAdmin();
+        if (_phase == GamePhase.WritingQuestion &&
+            (!_players.TryGetValue(_redactorPlayerId ?? string.Empty, out var redactor) || !redactor.IsConnected))
+            AssignRedactor();
+    }
+
+    public bool TrySetRedactorCanGuess(bool enabled)
+    {
+        lock (_lock)
+        {
+            if (_phase != GamePhase.Lobby) return false;
+            RedactorCanGuess = enabled;
+            _lastActivity = DateTimeOffset.UtcNow;
+            return true;
+        }
     }
 
     /// <summary>
@@ -198,6 +221,7 @@ public sealed class Room
             player.ConnectionId = newConnectionId;
             player.IsConnected = true;
             player.DisconnectedAt = null;
+            RecoverAvailablePlayers();
             _lastActivity = DateTimeOffset.UtcNow;
             return true;
         }
@@ -227,6 +251,7 @@ public sealed class Room
 
             player.IsDisconnected = true;
             player.DisconnectedAt = DateTimeOffset.UtcNow;
+            RecoverAvailablePlayers();
             _lastActivity = DateTimeOffset.UtcNow;
             return true;
         }
@@ -250,7 +275,7 @@ public sealed class Room
             foreach (var id in timedOut)
                 _players.TryRemove(id, out _);
 
-            if (timedOut.Count > 0) EnsureAdmin();
+            if (timedOut.Count > 0) RecoverAvailablePlayers();
 
             return timedOut;
         }
@@ -268,7 +293,7 @@ public sealed class Room
             var connected = _players.Values.Count(p => p.IsConnected);
             if (connected < MinPlayersToStart) return false;
 
-            MaxRounds = maxRounds;
+            MaxRounds = Math.Clamp(maxRounds, 1, 20);
             IsAlcoholFreeRoom = alcoholFree;
             _roundNumber = 0;
             _redactorIndex = 0;
@@ -300,7 +325,7 @@ public sealed class Room
         lock (_lock)
         {
             if (_phase != GamePhase.WritingQuestion) return false;
-            if (_redactorPlayerId != playerId) return false;
+            if (_redactorPlayerId != playerId || !_players.TryGetValue(playerId, out var redactor) || !redactor.IsConnected) return false;
             if (string.IsNullOrWhiteSpace(question)) return false;
 
             var normalized = question.Trim();
@@ -340,8 +365,8 @@ public sealed class Room
         lock (_lock)
         {
             if (_phase != GamePhase.CollectingGuesses || !double.IsFinite(guess) || Math.Abs(guess) > 1e15) return (false, false);
-            if (!_players.TryGetValue(playerId, out var player)) return (false, false);
-            if (!IsEstimator(player)) return (false, false); // el Redactor no adivina
+            if (!_players.TryGetValue(playerId, out var player) || !player.IsConnected) return (false, false);
+            if (!IsEstimator(player)) return (false, false);
             if (player.Guess.HasValue) return (false, false); // ya envió
 
             player.Guess = guess;
@@ -351,32 +376,21 @@ public sealed class Room
         }
     }
 
-    /// <summary>
-    /// Un jugador es estimador si NO es el Redactor de la ronda.
-    /// Se decide por <see cref="_redactorPlayerId"/> (fuente de verdad) y no por
-    /// <see cref="Player.Role"/>, que es un campo derivado que podría quedar
-    /// desincronizado. Así la condición de cierre es siempre
-    /// «estimaciones recibidas == jugadores conectados - 1 (el Redactor)».
-    /// </summary>
-    private bool IsEstimator(Player p) => p.PlayerId != _redactorPlayerId;
+    private bool IsEstimator(Player p) => RedactorCanGuess || p.PlayerId != _redactorPlayerId;
 
-    /// <summary>Estimadores conectados esperados esta ronda (todos menos el Redactor).</summary>
+    // Si alguien se desconecta tras responder, su respuesta sigue en el total.
     private int CountExpectedGuesses() =>
-        _players.Values.Count(p => p.IsConnected && IsEstimator(p));
+        _players.Values.Count(p => IsEstimator(p) && (p.IsConnected || p.Guess.HasValue));
 
-    /// <summary>Estimaciones ya recibidas (incluye desconectados que enviaron antes de caerse).</summary>
     private int CountSubmittedGuesses() =>
         _players.Values.Count(p => IsEstimator(p) && p.Guess.HasValue);
 
-    /// <summary>
-    /// True cuando todos los estimadores conectados han enviado. Debe llamarse bajo _lock.
-    /// Si no queda ningún estimador conectado devuelve false: la ronda se cierra
-    /// manualmente con RequestResults, no de forma automática.
-    /// </summary>
-    private bool AllGuessesSubmitted()
+    private bool AllGuessesSubmitted() => CountSubmittedGuesses() > 0 &&
+        _players.Values.Where(p => p.IsConnected && IsEstimator(p)).All(p => p.Guess.HasValue);
+
+    public bool ReadyToFinalize
     {
-        var expected = _players.Values.Where(p => p.IsConnected && IsEstimator(p)).ToList();
-        return expected.Count > 0 && expected.All(p => p.Guess.HasValue);
+        get { lock (_lock) return _phase == GamePhase.CollectingGuesses && AllGuessesSubmitted(); }
     }
 
     /// <summary>
@@ -403,7 +417,7 @@ public sealed class Room
                     Error = ComputeRelativeError(p.Guess!.Value, correctAnswer)
                 })
                 .OrderBy(x => x.Error)
-                .ThenBy(x => x.Player.Name) // desempate determinista por nombre
+                .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase) // desempate determinista por nombre
                 .ToList();
 
             // Asignar rangos (empates comparten rango)
@@ -438,7 +452,14 @@ public sealed class Room
                 : new List<PlayerRoundResult>();
 
             const int winnerDrinks = 1;
-            const int loserPenalty = 1;
+            int loserPenalty = losers.Count == 0 ? 0 : losers[0].RelativeErrorPercent >= 1000 ? 2 : 1;
+            var otherPlayers = _players.Values.Where(p => p.PlayerId != _redactorPlayerId && (p.IsConnected || p.Guess.HasValue)).ToList();
+            int redactorPenalty = otherPlayers.Count > 0 &&
+                otherPlayers.All(p => p.Guess.HasValue && ComputeRelativeError(p.Guess.Value, correctAnswer) <= 0.01)
+                ? 1 : 0;
+            string redactorPenaltyDescription = redactorPenalty > 0
+                ? "Demasiado fácil: todos los demás han acertado con un error máximo del 1%. Un trago para el redactor."
+                : string.Empty;
 
             // Aplicar tragos a los jugadores.
             // Bucle por índice: reasignamos results[i] dentro del bucle y un foreach
@@ -455,25 +476,37 @@ public sealed class Room
                 if (isLoser)
                 {
                     drinks = loserPenalty;
-                    penalty = IsAlcoholFreeRoom
-                        ? "🧃 El más lejos paga: un buen trago de lo que tengas."
-                        : "🍺 El más lejos paga: te toca beber.";
+                    penalty = IsAlcoholFreeRoom || player.AlcoholFree
+                        ? $"Te has ido lejos: {drinks} trago(s) de tu bebida sin alcohol."
+                        : drinks == 2 ? "Error de al menos el 1000%: 2 tragos." : "El más lejos paga: 1 trago.";
                 }
 
                 player.DrinksOwed += drinks;
-                player.Score += (int)Math.Max(0, 100 - Math.Min(100, Math.Round(ranked.First(x => x.Player.PlayerId == r.PlayerId).Error * 100)));
+
 
                 // Actualizar resultado con drinks
                 results[i] = r with { DrinksThisRound = drinks, PenaltyDescription = penalty };
             }
 
-            // Ganadores reparten tragos (ya contabilizados arriba en los demás)
+            // Cada victoria suma un punto; el reparto se registra aparte, al elegir destinatario.
             foreach (var w in winners)
             {
                 var player = _players[w.PlayerId];
-                // El ganador no bebe, pero sí acumula puntos extra
-                player.Score += 10;
+                player.Score += 1;
             }
+
+            if (redactorPenalty > 0 && _players.TryGetValue(_redactorPlayerId ?? string.Empty, out var author))
+            {
+                author.DrinksOwed += redactorPenalty;
+                var authorIndex = results.FindIndex(r => r.PlayerId == author.PlayerId);
+                if (authorIndex >= 0)
+                    results[authorIndex] = results[authorIndex] with
+                    {
+                        DrinksThisRound = results[authorIndex].DrinksThisRound + redactorPenalty,
+                        PenaltyDescription = string.Join(" ", new[] { results[authorIndex].PenaltyDescription, redactorPenaltyDescription }.Where(x => x.Length > 0))
+                    };
+            }
+            else redactorPenalty = 0;
 
             var roundResult = new RoundResult
             {
@@ -486,7 +519,9 @@ public sealed class Room
                 WinnerName = string.Join(" y ", winners.Select(w => w.PlayerName)),
                 LoserName = string.Join(" y ", losers.Select(l => l.PlayerName)),
                 DrinksToDistribute = winnerDrinks,
-                LoserPenalty = loserPenalty
+                LoserPenalty = loserPenalty,
+                RedactorPenalty = redactorPenalty,
+                RedactorPenaltyDescription = redactorPenalty > 0 ? redactorPenaltyDescription : string.Empty
             };
 
             _lastResult = roundResult;
@@ -497,15 +532,60 @@ public sealed class Room
         }
     }
 
+    public bool TryDistributeDrinks(string winnerPlayerId, string targetPlayerId, int amount)
+    {
+        lock (_lock)
+        {
+            if (_phase != GamePhase.ShowingResults || _lastResult is null || amount < 1) return false;
+            if (!_lastResult.Ranking.Any(r => r.PlayerId == winnerPlayerId && r.Rank == 1)) return false;
+            if (winnerPlayerId == targetPlayerId || !_players.TryGetValue(targetPlayerId, out var target)) return false;
+            var used = _lastResult.DrinksDistributedByWinner.GetValueOrDefault(winnerPlayerId);
+            if (amount > _lastResult.DrinksToDistribute - used) return false;
+
+            target.DrinksOwed += amount;
+            var distributed = new Dictionary<string, int>(_lastResult.DrinksDistributedByWinner) { [winnerPlayerId] = used + amount };
+            _lastResult = _lastResult with
+            {
+                DrinksDistributedByWinner = distributed,
+                DrinkAssignments = _lastResult.DrinkAssignments.Append(new DrinkAssignment(winnerPlayerId, targetPlayerId, amount)).ToList().AsReadOnly(),
+                Ranking = _lastResult.Ranking.Select(r => r.PlayerId == targetPlayerId
+                    ? r with { DrinksThisRound = r.DrinksThisRound + amount } : r).ToList().AsReadOnly()
+            };
+            _lastActivity = DateTimeOffset.UtcNow;
+            return true;
+        }
+    }
+
+    public bool TrySetSarcasticComment(int roundNumber, string comment)
+    {
+        lock (_lock)
+        {
+            if (_phase != GamePhase.ShowingResults || _roundNumber != roundNumber || _lastResult is null) return false;
+            _lastResult = _lastResult with { SarcasticComment = comment };
+            return true;
+        }
+    }
+
     /// <summary>
     /// Avanza a la siguiente ronda o cierra el juego si se alcanzó el máximo.
     /// Devuelve true si hay más rondas, false si el juego terminó.
     /// </summary>
+    public bool HasPendingDistribution
+    {
+        get
+        {
+            lock (_lock)
+                return _phase == GamePhase.ShowingResults && _lastResult is not null && _players.Count > 1 &&
+                    _lastResult.Ranking.Any(r => r.Rank == 1 && _players.TryGetValue(r.PlayerId, out var winner) && winner.IsConnected &&
+                        _lastResult.DrinksDistributedByWinner.GetValueOrDefault(r.PlayerId) < _lastResult.DrinksToDistribute);
+        }
+    }
+
     public bool TryAdvanceRound()
     {
         lock (_lock)
         {
-            if (_phase != GamePhase.ShowingResults) return false;
+            if (_phase != GamePhase.ShowingResults || HasPendingDistribution) return false;
 
             if (_roundNumber >= MaxRounds)
             {
@@ -559,6 +639,7 @@ public sealed class Room
             _currentQuestion = null;
             _pendingAnswer = null;
             _phase = GamePhase.WritingQuestion;
+            RecoverAvailablePlayers();
             _lastActivity = DateTimeOffset.UtcNow;
         }
     }
@@ -588,6 +669,7 @@ public sealed class Room
                 LastResult = _lastResult,
                 MaxRounds = MaxRounds,
                 IsAlcoholFreeRoom = IsAlcoholFreeRoom,
+                RedactorCanGuess = RedactorCanGuess,
                 GuessesSubmitted = guessesSubmitted,
                 GuessesExpected = guessesExpected
             };
@@ -619,8 +701,8 @@ public sealed class Room
 
     private void AssignRedactor(string? preferredPlayerId = null)
     {
-        var connected = _players.Values.Where(p => p.IsConnected).ToList();
-        if (connected.Count == 0) return;
+        var connected = _players.Values.Where(p => p.IsConnected).OrderByDescending(p => p.IsAdmin).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        if (connected.Count == 0) { _redactorPlayerId = null; return; }
 
         var redactor = !string.IsNullOrEmpty(preferredPlayerId)
             ? connected.FirstOrDefault(p => p.PlayerId == preferredPlayerId)
@@ -647,8 +729,8 @@ public sealed class Room
     {
         if (correct == 0.0)
         {
-            // Respuesta correcta es cero: error = |guess|, capped a 1 para normalizar
-            return Math.Min(Math.Abs(guess), 1_000_000);
+            // Sin denominador natural, conservamos distancia absoluta sin crear falsos empates.
+            return Math.Min(Math.Abs(guess), 1e300);
         }
 
         return Math.Min(Math.Abs(guess - correct) / Math.Abs(correct), 1e300);

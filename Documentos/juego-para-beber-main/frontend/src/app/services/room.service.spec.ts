@@ -31,6 +31,8 @@ describe('RoomService', () => {
     // Inyectar hub mock
     (service as any)._hub = mockHub;
     mockHub.invoke.calls.reset();
+    mockHub.invoke.and.resolveTo();
+    mockHub.on.calls.reset();
   });
 
   it('should be created', () => {
@@ -83,6 +85,47 @@ describe('RoomService', () => {
     await expectAsync(service.joinRoom('EFGH', 'Ana')).toBeRejected();
     expect(service.localPlayer).toEqual(session);
     mockHub.invoke.and.returnValue(Promise.resolve());
+  });
+
+  it('sends the mode change for the current room', async () => {
+    (service as any)._gameState$.next({ roomCode: 'ABCD' });
+    await service.setRedactorCanGuess(true);
+    expect(mockHub.invoke).toHaveBeenCalledWith('SetRedactorCanGuess', 'ABCD', true);
+  });
+
+  it('does not send a mode change without a room', async () => {
+    await expectAsync(service.setRedactorCanGuess(true)).toBeRejected();
+    expect(mockHub.invoke).not.toHaveBeenCalled();
+  });
+
+  it('clears the session when leaving fails due to a broken connection', async () => {
+    (service as any)._localPlayer = { playerId: 'p1', roomCode: 'ABCD' };
+    sessionStorage.setItem('aproximados_session', '{}');
+    mockHub.invoke.and.rejectWith(new Error('offline'));
+    await expectAsync(service.leaveRoom()).toBeRejected();
+    expect(service.localPlayer).toBeNull();
+    expect(sessionStorage.getItem('aproximados_session')).toBeNull();
+  });
+
+  it('normalizes the game mode from both serializer conventions', () => {
+    (service as any).registerHandlers();
+    const update = mockHub.on.calls.allArgs().find(args => args[0] === 'GameStateUpdated')![1];
+    update({ RoomCode: 'ABCD', Phase: 0, RedactorCanGuess: true });
+    expect(service.currentState?.redactorCanGuess).toBeTrue();
+    update({ roomCode: 'ABCD', phase: 'Lobby', redactorCanGuess: false });
+    expect(service.currentState?.redactorCanGuess).toBeFalse();
+    update({ roomCode: 'ABCD', phase: 'Lobby' });
+    expect(service.currentState?.redactorCanGuess).toBeFalse();
+  });
+
+  it('clears player identity before notifying subscribers of room closure', () => {
+    (service as any).registerHandlers();
+    (service as any)._localPlayer = { playerId: 'p1', roomCode: 'ABCD' };
+    let localPlayerOnClose: unknown = 'not notified';
+    service.gameState$.subscribe(state => { if (!state) localPlayerOnClose = service.localPlayer; });
+    const close = mockHub.on.calls.allArgs().find(args => args[0] === 'RoomClosed')![1];
+    close('Final de la partida');
+    expect(localPlayerOnClose).toBeNull();
   });
 
 });

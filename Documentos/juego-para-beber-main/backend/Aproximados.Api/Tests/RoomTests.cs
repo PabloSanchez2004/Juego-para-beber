@@ -391,6 +391,13 @@ public class RoomTwoPlayerFlowTests
         return room;
     }
 
+    private static void DistributePendingDrinks(Room room)
+    {
+        foreach (var winner in room.LastResult!.Ranking.Where(r => r.Rank == 1))
+            Assert.True(room.TryDistributeDrinks(winner.PlayerId,
+                room.Players.First(p => p.PlayerId != winner.PlayerId).PlayerId, room.LastResult.DrinksToDistribute));
+    }
+
     private static Player EstimatorOf(Room room) =>
         room.Players.Single(p => p.PlayerId != room.RedactorPlayerId);
 
@@ -419,6 +426,7 @@ public class RoomTwoPlayerFlowTests
         room.TrySubmitQuestion(firstRedactor!, "¿Cuántos km tiene la Tierra?");
         room.TrySubmitGuess(firstEstimator, 12000);
         Assert.NotNull(room.FinalizeRound(12742, "src", string.Empty));
+        DistributePendingDrinks(room);
         Assert.True(room.TryAdvanceRound());
 
         // El único estimador fue el más cercano: le toca redactar.
@@ -459,6 +467,7 @@ public class RoomTwoPlayerFlowTests
         room.TrySubmitGuess(estimators[0].PlayerId, 400); // lejos
         room.TrySubmitGuess(estimators[1].PlayerId, 101); // más cercano
         Assert.NotNull(room.FinalizeRound(100, "src", string.Empty));
+        DistributePendingDrinks(room);
         Assert.True(room.TryAdvanceRound());
 
         Assert.Equal(estimators[1].PlayerId, room.RedactorPlayerId);
@@ -486,6 +495,7 @@ public class RoomTwoPlayerFlowTests
         var result = room.FinalizeRound(100, "src", string.Empty);
         Assert.NotNull(result);
         Assert.True(result.Ranking.All(r => r.Rank == 1));
+        DistributePendingDrinks(room);
         Assert.True(room.TryAdvanceRound());
 
         Assert.Equal(estimators[0].PlayerId, room.RedactorPlayerId);
@@ -514,6 +524,7 @@ public class RoomTwoPlayerFlowTests
         Assert.NotNull(room.FinalizeRound(100, "src", string.Empty));
 
         room.MarkDisconnected(closest.ConnectionId);
+        DistributePendingDrinks(room);
         Assert.True(room.TryAdvanceRound());
 
         Assert.Equal(nextClosest.PlayerId, room.RedactorPlayerId);

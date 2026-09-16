@@ -46,7 +46,7 @@ public sealed class Player
     /// <summary>Rol asignado en la ronda actual.</summary>
     public PlayerRole Role { get; set; } = PlayerRole.Estimator;
 
-    /// <summary>Puntuación acumulada (menor error relativo = mejor).</summary>
+    /// <summary>Victorias acumuladas: un punto por ronda ganada, también en empate.</summary>
     public int Score { get; set; }
 
     /// <summary>Tragos acumulados que debe beber.</summary>

@@ -1,5 +1,5 @@
 <!-- Sala de espera -->
-<div class="min-h-screen flex flex-col px-4 pt-8 pb-40 safe-top animate-fade-in">
+<div class="lobby-page min-h-screen flex flex-col px-4 pt-8 pb-40 safe-top animate-fade-in">
 
   @if (state(); as s) {
     <!-- Header -->
@@ -30,7 +30,7 @@
         {{ s.roomCode }}
       </button>
       <p class="text-gray-600 text-sm mt-2">
-        {{ codeCopied() ? '✅ ¡Copiado!' : '👆 Toca para copiar' }}
+        {{ codeCopied() ? 'Código copiado' : 'Toca el código para copiarlo' }}
       </p>
 
       <!-- Enlace directo: quien lo abre entra con el código ya puesto -->
@@ -38,21 +38,45 @@
         class="btn-secondary mt-4"
         (click)="copyInviteLink()"
         aria-label="Copiar enlace de invitación a la sala">
-        {{ linkCopied() ? '✅ ¡Enlace copiado!' : '🔗 Copiar enlace de invitación' }}
+        {{ linkCopied() ? 'Enlace copiado' : 'Copiar enlace de invitación' }}
       </button>
     </div>
 
-    <!-- Rondas de la partida (las elige el host al crear la sala) -->
-    <div class="card mb-6 text-center">
-      <p class="eyebrow mb-2">Partida</p>
-      <p class="text-4xl font-extrabold text-white tabular-nums leading-none">{{ s.maxRounds }}</p>
-      <p class="text-slate-400 text-sm mt-2">{{ s.maxRounds === 1 ? 'ronda' : 'rondas' }}</p>
-    </div>
+    <section class="card mb-6" aria-labelledby="game-settings-title">
+      <div class="flex items-center justify-between gap-3 mb-5">
+        <div>
+          <p class="eyebrow mb-1">A vuestra manera</p>
+          <h2 id="game-settings-title" class="text-xl font-bold text-white">Modo de juego</h2>
+        </div>
+        <span class="badge-neutral">{{ s.maxRounds }} {{ s.maxRounds === 1 ? 'ronda' : 'rondas' }}</span>
+      </div>
+      <div class="game-mode-grid" role="group" aria-label="Modo de juego">
+        <button type="button" class="game-mode-option" [class.selected]="!s.redactorCanGuess"
+          [attr.aria-pressed]="!s.redactorCanGuess"
+          [disabled]="!isAdmin() || loading() || modeSaving()" (click)="selectMode(false)">
+          <span class="mode-icon" aria-hidden="true">01</span>
+          <strong>Solo pregunta</strong>
+          <span>El redactor escribe. Los demás responden.</span>
+          <small>{{ !s.redactorCanGuess ? 'Seleccionado' : 'El redactor no responde' }}</small>
+        </button>
+        <button type="button" class="game-mode-option" [class.selected]="s.redactorCanGuess"
+          [attr.aria-pressed]="s.redactorCanGuess"
+          [disabled]="!isAdmin() || loading() || modeSaving()" (click)="selectMode(true)">
+          <span class="mode-icon" aria-hidden="true">02</span>
+          <strong>Todos responden</strong>
+          <span>El redactor también apuesta por su número.</span>
+          <small>{{ s.redactorCanGuess ? 'Seleccionado' : 'Nadie se queda fuera' }}</small>
+        </button>
+      </div>
+      <p class="text-gray-400 text-xs mt-4" aria-live="polite">
+        {{ modeSaving() ? 'Guardando modo…' : isAdmin() ? 'Tú eliges el modo antes de empezar. Todos verán el cambio.' : 'El anfitrión elige el modo para toda la partida.' }}
+      </p>
+    </section>
 
     <!-- Lista de jugadores -->
     <div class="mb-8">
       <h2 class="text-gray-400 text-sm font-semibold uppercase tracking-wide mb-3">
-        Jugadores ({{ connectedCount() }}/{{ players().length }})
+        Vuestro equipo · {{ connectedCount() }} conectados
       </h2>
 
       <div class="space-y-3">
@@ -79,11 +103,11 @@
                   <span class="text-lime-400 text-xs ml-1">(tú)</span>
                 }
                 @if (player.isAdmin) {
-                  <span class="text-gold-300 text-xs ml-1" title="Anfitrión">👑</span>
+                  <span class="text-lime-400 text-xs ml-1" title="Anfitrión">Anfitrión</span>
                 }
               </p>
               <p class="text-gray-500 text-xs">
-                {{ player.isConnected ? '🟢 Conectado' : '🔴 Desconectado' }}
+                {{ player.isConnected ? 'Listo para jugar' : 'Reconectando…' }}
               </p>
             </div>
 
@@ -136,44 +160,22 @@
       </div>
     }
 
-    <!-- CTA inferior fijo: el host arranca; el resto espera -->
-    <div class="fixed inset-x-0 bottom-0 z-20 px-4 pt-8 pb-4 safe-bottom
+    <div class="lobby-actions fixed inset-x-0 bottom-0 z-20 px-4 pt-8 pb-4 safe-bottom
                 bg-gradient-to-t from-ink-950 from-55% to-transparent">
       @if (isAdmin()) {
-        @if (canStart()) {
-          <button
-            class="w-full py-6 text-2xl font-black rounded-xl
-                   bg-lime-400 text-black
-                   shadow-[0_0_15px_rgba(163,230,53,0.5)]
-                   active:scale-95 transition-transform
-                   disabled:opacity-35 disabled:cursor-not-allowed disabled:active:scale-100"
-            [disabled]="loading()"
-            (click)="startGame()"
-            aria-label="Empezar partida">
-            @if (loading()) {
-              <span class="flex items-center justify-center gap-2">
-                <span class="loading-dot !bg-black/80" style="animation-delay:0ms"></span>
-                <span class="loading-dot !bg-black/80" style="animation-delay:150ms"></span>
-                <span class="loading-dot !bg-black/80" style="animation-delay:300ms"></span>
-              </span>
-            } @else {
-              ¡EMPEZAR PARTIDA! 🚀
-            }
-          </button>
-        } @else {
-          <div class="w-full py-6 text-xl font-black rounded-xl text-center
-                      bg-zinc-950 border-2 border-purple-600/50 text-purple-300/70">
-            Esperando jugadores (mínimo 2)...
-          </div>
-        }
-      } @else {
-        <p class="text-center text-xl font-black leading-snug animate-pulse text-white px-2">
-          @if (enoughPlayers()) {
-            Esperando a que el Host le dé a empezar...
-          } @else {
-            Esperando jugadores (mínimo 2)...
-          }
+        <p class="text-center text-gray-400 text-sm mb-3">
+          {{ enoughPlayers() ? 'Todo listo. Que gane quien menos se equivoque.' : 'Invita al menos a una persona para empezar.' }}
         </p>
+        <button class="btn-primary w-full" [disabled]="!canStart()" (click)="startGame()"
+          aria-label="Empezar partida">
+          {{ loading() ? 'Empezando…' : 'Empezar partida' }}
+          <span aria-hidden="true">↗</span>
+        </button>
+      } @else {
+        <div class="card text-center" role="status">
+          <p class="text-white font-semibold">{{ enoughPlayers() ? 'Ya estamos. Solo falta darle al play.' : 'La sala se está llenando…' }}</p>
+          <p class="text-gray-400 text-sm mt-2">Esperando a {{ adminName() || 'el anfitrión' }} para empezar.</p>
+        </div>
       }
     </div>
 
@@ -181,7 +183,7 @@
     <!-- Cargando -->
     <div class="flex-1 flex items-center justify-center">
       <div class="text-center">
-        <div class="text-5xl mb-4 animate-bounce-slow">🎯</div>
+        <div class="loading-dot mx-auto mb-4" aria-hidden="true"></div>
         <p class="text-gray-400">Cargando sala...</p>
       </div>
     </div>

@@ -45,6 +45,17 @@ export class GameComponent implements OnInit, OnDestroy {
 
   isWritingPhase = computed(() => this.state()?.phase === 'WritingQuestion');
   isCollectingPhase = computed(() => this.state()?.phase === 'CollectingGuesses');
+  canGuess = computed(() => {
+    const s = this.state();
+    return !!s?.players.some(p => p.playerId === this.myPlayerId() && p.isConnected)
+      && (!this.isRedactor() || s.redactorCanGuess);
+  });
+
+  canCloseRound = computed(() => {
+    const s = this.state();
+    return this.isCollectingPhase() && (this.isRedactor() || s?.adminPlayerId === this.myPlayerId());
+  });
+
   isFollowUpRound = computed(() => (this.state()?.roundNumber ?? 0) > 1);
 
   redactorName = computed(() => {
@@ -53,17 +64,12 @@ export class GameComponent implements OnInit, OnDestroy {
     return s.players.find(p => p.playerId === s.redactorPlayerId)?.name ?? '';
   });
 
-  /**
-   * Estimaciones esperadas esta ronda = jugadores conectados - 1 (el Redactor no adivina).
-   * El servidor ya lo calcula así (GuessesExpected); si por cualquier motivo no llega
-   * (0 / undefined), lo derivamos localmente de la lista de jugadores para que el
-   * contador nunca muestre «N/N» con el Redactor incluido.
-   */
+  /** El contador sigue el modo seleccionado en la sala. */
   guessesExpected = computed(() => {
     const s = this.state();
     if (!s) return 0;
     if (s.guessesExpected > 0) return s.guessesExpected;
-    return s.players.filter(p => p.isConnected && p.playerId !== s.redactorPlayerId).length;
+    return s.players.filter(p => p.isConnected && (s.redactorCanGuess || p.playerId !== s.redactorPlayerId)).length;
   });
 
   guessProgress = computed(() => {
@@ -117,13 +123,14 @@ export class GameComponent implements OnInit, OnDestroy {
         const previous = this.state();
         this.state.set(s);
 
-        // Reset al cambiar de fase
-        if (s.phase === 'WritingQuestion' && (previous?.phase !== s.phase || previous?.roundNumber !== s.roundNumber)) {
+        // También reinicia si la reconexión se salta la fase de escritura.
+        if (previous?.roundNumber !== s.roundNumber || (s.phase === 'WritingQuestion' && previous?.phase !== s.phase)) {
           this.question.set('');
           this.questionSent.set(false);
           this.guessSent.set(false);
           this.guessInput.set('');
           this.loading.set(false);
+          this.errorMsg.set('');
         }
 
         // Tras RejoinRoom: recuperar si ya habíamos enviado
@@ -133,6 +140,7 @@ export class GameComponent implements OnInit, OnDestroy {
           if (me?.guess != null) {
             this.guessSent.set(true);
             this.guessInput.set(formatEsNumber(me.guess));
+            this.loading.set(false);
           }
         }
       })
@@ -147,7 +155,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.roomService.guessAcknowledged$.subscribe(() => {
-        this.guessSent.set(true);
+        if (this.isCollectingPhase() && this.canGuess()) this.guessSent.set(true);
         this.loading.set(false);
       })
     );
@@ -160,14 +168,14 @@ export class GameComponent implements OnInit, OnDestroy {
   // ── Acciones ───────────────────────────────────────────────────────────
 
   async submitQuestion(): Promise<void> {
-    if (!this.questionValid() || this.loading()) return;
+    if (!this.isWritingPhase() || !this.isRedactor() || !this.questionValid() || this.loading() || this.questionSent()) return;
 
     this.loading.set(true);
     this.errorMsg.set('');
 
     try {
       await this.roomService.submitQuestion(this.question().trim());
-      this.questionSent.set(true);
+      // El estado confirmado por el servidor activa questionSent.
     } catch {
       this.errorMsg.set('Error al enviar la pregunta.');
     } finally {
@@ -176,7 +184,7 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   async submitGuess(): Promise<void> {
-    if (!this.guessValid() || this.loading() || this.guessSent()) return;
+    if (!this.isCollectingPhase() || !this.canGuess() || !this.guessValid() || this.loading() || this.guessSent()) return;
 
     const val = this.resolvedGuess();
     if (val === null) return;
@@ -194,14 +202,15 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   async forceResults(): Promise<void> {
-    if (this.loading()) return;
+    if (!this.canCloseRound() || !this.state()?.guessesSubmitted || this.loading()) return;
     this.loading.set(true);
     this.errorMsg.set('');
 
     try {
       await this.roomService.requestResults();
     } catch {
-      this.errorMsg.set('Error al cerrar la ronda.');
+      this.errorMsg.set('Error al cerrar la ronda. Inténtalo de nuevo.');
+    } finally {
       this.loading.set(false);
     }
   }

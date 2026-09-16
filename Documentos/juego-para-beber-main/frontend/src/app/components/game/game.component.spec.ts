@@ -19,6 +19,7 @@ const mockState: GameStateDto = {
   lastResult: null,
   maxRounds: 5,
   isAlcoholFreeRoom: false,
+  redactorCanGuess: false,
   guessesSubmitted: 0,
   guessesExpected: 1,
 };
@@ -132,12 +133,14 @@ describe('GameComponent', () => {
 
   it('should call submitGuess with parsed number', async () => {
     mockRoomService.submitGuess.and.returnValue(Promise.resolve());
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
     component.guessInput.set('1.234');
     await component.submitGuess();
     expect(mockRoomService.submitGuess).toHaveBeenCalledWith(1234);
   });
 
   it('should mark guessSent on GuessAcknowledged', () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
     expect(component.guessSent()).toBeFalse();
     guessAcknowledged$.next();
     expect(component.guessSent()).toBeTrue();
@@ -176,6 +179,78 @@ describe('GameComponent', () => {
     component.question.set('Pregunta anterior');
     gameState$.next({ ...mockState, roundNumber: 2 });
     expect(component.question()).toBe('');
+  });
+
+  it('hides the answer form from the redactor in classic mode', async () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', redactorPlayerId: 'p2' });
+    fixture.detectChanges();
+    expect(component.canGuess()).toBeFalse();
+    expect(fixture.nativeElement.querySelector('#guess-input')).toBeNull();
+    component.guessInput.set('42');
+    await component.submitGuess();
+    expect(mockRoomService.submitGuess).not.toHaveBeenCalled();
+  });
+
+  it('lets the redactor answer and close the round in the all-play mode', async () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', redactorPlayerId: 'p2', redactorCanGuess: true, guessesExpected: 0 });
+    fixture.detectChanges();
+    expect(component.canGuess()).toBeTrue();
+    expect(component.canCloseRound()).toBeTrue();
+    expect(component.guessesExpected()).toBe(2);
+    expect(fixture.nativeElement.querySelector('#guess-input')).not.toBeNull();
+    mockRoomService.submitGuess.and.returnValue(Promise.resolve());
+    component.guessInput.set('42');
+    await component.submitGuess();
+    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(42);
+  });
+
+  it('restores the author’s zero guess after reconnecting in all-play mode', () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', redactorPlayerId: 'p2', redactorCanGuess: true,
+      players: mockState.players.map(p => p.playerId === 'p2' ? { ...p, guess: 0 } : p) });
+    fixture.detectChanges();
+    expect(component.guessSent()).toBeTrue();
+    expect(component.formattedResolvedGuess()).toBe('0');
+    expect(fixture.nativeElement.querySelector('#guess-input')).toBeNull();
+  });
+
+  it('clears a previous submitted guess if reconnecting directly into a later round', () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
+    component.guessInput.set('42');
+    guessAcknowledged$.next();
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', roundNumber: 2 });
+    expect(component.guessSent()).toBeFalse();
+    expect(component.guessInput()).toBe('');
+  });
+
+  it('does not disclose another player’s secret estimate', () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses',
+      players: mockState.players.map(p => p.playerId === 'p1' ? { ...p, guess: 987654321 } : p) });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('987');
+  });
+
+  it('allows the host to close a round even when another player is the author', async () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', adminPlayerId: 'p2', guessesSubmitted: 1 });
+    mockRoomService.requestResults.and.returnValue(Promise.resolve());
+    await component.forceResults();
+    expect(mockRoomService.requestResults).toHaveBeenCalled();
+    expect(component.loading()).toBeFalse();
+  });
+
+  it('does not close a round without any estimates', async () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses', adminPlayerId: 'p2', guessesSubmitted: 0 });
+    await component.forceResults();
+    expect(mockRoomService.requestResults).not.toHaveBeenCalled();
+  });
+
+  it('does not lock the question editor when the server rejects a question', async () => {
+    gameState$.next({ ...mockState, redactorPlayerId: 'p2' });
+    component.question.set('¿Cuántos huesos tiene un adulto?');
+    mockRoomService.submitQuestion.and.callFake(async () => { error$.next('Pregunta inválida'); });
+    await component.submitQuestion();
+    expect(component.questionSent()).toBeFalse();
+    expect(component.errorMsg()).toBe('Pregunta inválida');
+    expect(component.loading()).toBeFalse();
   });
 
 });

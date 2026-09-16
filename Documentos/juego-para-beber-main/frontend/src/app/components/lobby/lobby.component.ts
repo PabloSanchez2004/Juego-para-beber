@@ -22,6 +22,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   state = signal<GameStateDto | null>(null);
   errorMsg = signal('');
   loading = signal(false);
+  modeSaving = signal(false);
   codeCopied = signal(false);
   linkCopied = signal(false);
 
@@ -46,7 +47,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   adminName = computed(() => this.players().find(p => p.isAdmin)?.name ?? '');
 
   enoughPlayers = computed(() => this.connectedCount() >= 2);
-  canStart = computed(() => this.enoughPlayers() && this.isAdmin() && !this.loading());
+  canStart = computed(() => this.enoughPlayers() && this.isAdmin() && !this.loading() && !this.modeSaving());
 
   /** Enlace de invitación directo: abre la app con el código ya puesto. */
   inviteLink = computed(() => {
@@ -108,7 +109,22 @@ export class LobbyComponent implements OnInit, OnDestroy {
       await this.roomService.startGame(this.state()?.maxRounds ?? 10);
     } catch {
       this.errorMsg.set('Error al iniciar el juego.');
+    } finally {
       this.loading.set(false);
+    }
+  }
+
+  async selectMode(redactorCanGuess: boolean): Promise<void> {
+    if (!this.isAdmin() || this.loading() || this.modeSaving() ||
+        this.state()?.redactorCanGuess === redactorCanGuess) return;
+    this.modeSaving.set(true);
+    this.errorMsg.set('');
+    try {
+      await this.roomService.setRedactorCanGuess(redactorCanGuess);
+    } catch {
+      this.errorMsg.set('No se pudo cambiar el modo. Inténtalo de nuevo.');
+    } finally {
+      this.modeSaving.set(false);
     }
   }
 
@@ -181,8 +197,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
   }
 
   async leaveRoom(): Promise<void> {
-    await this.roomService.leaveRoom();
-    this.router.navigate(['/']);
+    try {
+      await this.roomService.leaveRoom();
+    } catch {
+      // The local session is cleared even if the connection has already gone.
+    } finally {
+      this.router.navigate(['/']);
+    }
   }
 
   isMe(player: PlayerPublicDto): boolean {

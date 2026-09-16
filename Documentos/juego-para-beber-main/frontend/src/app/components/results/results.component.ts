@@ -50,6 +50,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   state = signal<GameStateDto | null>(null);
   loading = signal(false);
   errorMsg = signal('');
+  showFinal = signal(false);
 
   myPlayerId = computed(() => this.roomService.localPlayer?.playerId ?? '');
 
@@ -71,7 +72,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
    */
   isSoloEstimator = computed(() => this.ranking().length === 1);
 
-  /** Nombre del Redactor de la ronda (no participa adivinando). */
+  /** Nombre del Redactor de la ronda. */
   redactorName = computed(() => {
     const s = this.state();
     if (!s) return '';
@@ -157,7 +158,32 @@ export class ResultsComponent implements OnInit, OnDestroy {
   );
 
   /** Tragos que reparte el ganador (viene del backend; 1 por defecto). */
-  drinksToDistribute = computed(() => this.result()?.drinksToDistribute || 1);
+  drinksToDistribute = computed(() => Math.max(0, this.result()?.drinksToDistribute ?? 0));
+
+  myDrinksRemaining = computed(() => {
+    if (!this.winners().some(p => this.isMe(p.playerId))) return 0;
+    const used = this.result()?.drinksDistributedByWinner?.[this.myPlayerId()] ?? 0;
+    return Math.max(0, this.drinksToDistribute() - used);
+  });
+
+  drinkRecipients = computed(() => this.state()?.players.filter(p => !this.isMe(p.playerId)) ?? []);
+
+  pendingDistributors = computed(() => {
+    const s = this.state();
+    const used = this.result()?.drinksDistributedByWinner ?? {};
+    return this.winners().filter(w => s?.players.some(p => p.playerId !== w.playerId)
+      && s?.players.some(p => p.playerId === w.playerId && p.isConnected)
+      && (used[w.playerId] ?? 0) < this.drinksToDistribute());
+  });
+
+  canAdvance = computed(() => this.state()?.adminPlayerId === this.myPlayerId()
+    && this.pendingDistributors().length === 0);
+
+  assignmentLines = computed(() => (this.result()?.drinkAssignments ?? []).map(assignment => ({
+    ...assignment,
+    fromName: this.playerName(assignment.fromPlayerId),
+    toName: this.playerName(assignment.toPlayerId),
+  })));
 
   private subs = new Subscription();
 
@@ -179,6 +205,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
           this.router.navigate(['/']);
           return;
         }
+        if (this.state()?.roundNumber !== s.roundNumber) {
+          this.showFinal.set(false);
+          this.errorMsg.set('');
+          this.loading.set(false);
+        }
         this.state.set(s);
       })
     );
@@ -196,7 +227,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   async nextRound(): Promise<void> {
-    if (this.loading()) return;
+    if (this.loading() || !this.canAdvance() || this.isLastRound()) return;
     this.loading.set(true);
     this.errorMsg.set('');
 
@@ -204,18 +235,44 @@ export class ResultsComponent implements OnInit, OnDestroy {
       await this.roomService.nextRound();
     } catch {
       this.errorMsg.set('Error al avanzar a la siguiente ronda.');
+    } finally {
       this.loading.set(false);
     }
+  }
+
+  async distributeTo(playerId: string): Promise<void> {
+    if (this.loading() || this.myDrinksRemaining() < 1 || !this.drinkRecipients().some(p => p.playerId === playerId)) return;
+    this.loading.set(true);
+    this.errorMsg.set('');
+    try {
+      await this.roomService.distributeDrinks(playerId, 1);
+    } catch {
+      this.errorMsg.set('No se pudo repartir el trago. Inténtalo otra vez.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  openFinal(): void {
+    if (this.isLastRound() && this.pendingDistributors().length === 0) this.showFinal.set(true);
   }
 
   async finishGame(): Promise<void> {
     if (this.loading()) return;
     this.loading.set(true);
+    this.errorMsg.set('');
     try {
       await this.roomService.leaveRoom();
+      await this.router.navigate(['/']);
+    } catch {
+      this.errorMsg.set('No se pudo salir de la sala. Inténtalo de nuevo.');
     } finally {
-      this.router.navigate(['/']);
+      this.loading.set(false);
     }
+  }
+
+  playerName(playerId: string): string {
+    return this.state()?.players.find(p => p.playerId === playerId)?.name ?? 'Jugador';
   }
 
   // ── Helpers de presentación ────────────────────────────────────────────
@@ -252,6 +309,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   formatError(pct: number): string {
+    if (!Number.isFinite(pct)) return 'Fuera de escala';
     if (pct === 0) return '¡Exacto! 🎯';
     if (pct < 5) return `${pct.toFixed(1)}% 🔥`;
     if (pct < 20) return `${pct.toFixed(1)}% 👍`;

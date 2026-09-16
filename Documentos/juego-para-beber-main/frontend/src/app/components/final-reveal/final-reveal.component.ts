@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { PodiumRow } from '../results/results.component';
+import type { PodiumRow } from '../results/results.component';
 
 /**
  * Fases de la ceremonia final:
@@ -52,6 +52,9 @@ export class FinalRevealComponent implements OnInit, OnDestroy {
   @Input() worstNames = '';
   @Input() isTie = false;
   @Input() alcoholFree = false;
+  @Input() busy = false;
+  @Input() error = '';
+  @Output() back = new EventEmitter<void>();
 
   /** Se emite cuando el jugador cierra la ceremonia. */
   @Output() finish = new EventEmitter<void>();
@@ -163,7 +166,7 @@ export class FinalRevealComponent implements OnInit, OnDestroy {
   }
 
   onFinish(): void {
-    this.finish.emit();
+    if (!this.busy) this.finish.emit();
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────

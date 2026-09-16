@@ -1,7 +1,4 @@
-<!--
-  Ceremonia final a pantalla completa. Bloquea la vista de resultados normal:
-  fija a 100vw/100vh, fondo opaco y sin scroll. Diseño mobile-first.
--->
+<!-- Clasificación final con acceso a los resultados de la última ronda. -->
 <div class="reveal-overlay safe-top safe-bottom" role="dialog" aria-modal="true"
      aria-label="Clasificación final de la partida">
 
@@ -19,7 +16,7 @@
         <p class="eyebrow mb-3">La respuesta era</p>
         <p class="answer-number">{{ correctAnswer | number:'1.0-4' }}</p>
         @if (answerSource) {
-          <p class="text-slate-500 text-xs mt-4 truncate max-w-[16rem] mx-auto">
+          <p class="text-slate-500 text-xs mt-4 break-words max-w-xs mx-auto">
             Fuente: {{ answerSource }}
           </p>
         }
@@ -29,6 +26,8 @@
         Preparando la clasificación...
       </p>
     </div>
+    <button class="w-full py-3 text-slate-400 text-sm font-semibold" (click)="skip()"
+            aria-label="Saltar la animación y ver la clasificación">Saltar animación →</button>
   }
 
   <!-- ── Fases 2-4: cuenta atrás de puestos y leaderboard ── -->
@@ -119,6 +118,7 @@
                     {{ row.player.score }}
                   </p>
                   <p class="text-slate-500 text-[10px] uppercase tracking-wider mt-0.5">pts</p>
+                  <p class="text-slate-400 text-xs mt-1">{{ row.player.drinksOwed }} tragos</p>
                 </div>
               </div>
             </article>
@@ -133,23 +133,23 @@
         <div class="card mb-4 reveal-item">
           @if (isTie) {
             <p class="text-slate-200 text-sm leading-relaxed text-center">
-              Empate total. Decidid entre todos si bebéis o si esto queda en tablas.
+              Empate total. Mismos puntos, honor compartido.
             </p>
           } @else {
             <div class="space-y-2.5">
               <div class="flex gap-3 items-start">
-                <span class="badge-gold shrink-0">🎯 Elige quién bebe</span>
+                <span class="badge-gold shrink-0">🏆 Victoria</span>
                 <p class="text-slate-200 text-sm leading-snug">
                   <span class="text-gold-300 font-semibold">{{ bestNames }}</span>
-                  gana la partida y señala a la víctima.
+                  encabeza la clasificación. Cada ronda ganada suma un punto.
                 </p>
               </div>
               @if (worstNames) {
                 <div class="flex gap-3 items-start">
-                  <span class="badge-red shrink-0 animate-pulse">{{ alcoholFree ? '🧃' : '🍺' }} Bebe</span>
+                  <span class="badge-neutral shrink-0">Hasta la próxima</span>
                   <p class="text-slate-200 text-sm leading-snug">
                     <span class="text-red-300 font-semibold">{{ worstNames }}</span>
-                    cierra la clasificación: te toca beber.
+                    cierra la clasificación. La revancha está servida.
                   </p>
                 </div>
               }
@@ -157,11 +157,18 @@
           }
         </div>
 
+        @if (error) {
+          <div class="alert-error mb-3" role="alert">{{ error }}</div>
+        }
         <button
           class="btn-primary reveal-item"
+          [disabled]="busy"
           (click)="onFinish()"
           aria-label="Terminar y volver al inicio">
-          Terminar partida
+          {{ busy ? 'Saliendo…' : 'Terminar partida' }}
+        </button>
+        <button class="w-full py-3 text-slate-400 text-sm font-semibold" [disabled]="busy" (click)="back.emit()">
+          Volver a la última ronda
         </button>
       } @else {
         <button

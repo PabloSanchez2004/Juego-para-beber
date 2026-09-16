@@ -72,6 +72,7 @@ public sealed class GameHub : Hub
                         await Clients.Group(roomCode).SendAsync(
                             "PlayerDisconnected", player.Name);
                         await BroadcastState(room, excludePlayerId: null);
+                        if (room.ReadyToFinalize) await FinalizeRoundAsync(room);
                     }
 
                     _logger.LogInformation(
@@ -94,7 +95,7 @@ public sealed class GameHub : Hub
     {
         var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
         var room = _roomManager.GetRoom(normalized);
-        return Task.FromResult(room is not null && room.Phase != GamePhase.Closed);
+        return Task.FromResult(room is not null && room.Phase == GamePhase.Lobby && room.Players.Count < Room.MaxPlayers);
     }
 
     // ── Crear sala ─────────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ public sealed class GameHub : Hub
 
         if (room.Phase != GamePhase.Lobby)
         {
-            await SendError("La partida ya ha empezado. Espera a la siguiente ronda.");
+            await SendError("La partida ya ha empezado. Podrás unirte a una nueva sala.");
             return;
         }
 
@@ -278,6 +279,24 @@ public sealed class GameHub : Hub
 
         await BroadcastState(room, excludePlayerId: null);
         _logger.LogInformation("Juego iniciado en sala {Code}, {Rounds} rondas", room.Code, maxRounds);
+    }
+
+    /// <summary>Configura quién puede estimar; únicamente el anfitrión y antes de empezar.</summary>
+    public async Task SetRedactorCanGuess(string roomCode, bool enabled)
+    {
+        var (room, player) = await GetRoomAndPlayerOrError();
+        if (room is null || player is null) return;
+        if (!string.Equals(room.Code, roomCode?.Trim(), StringComparison.OrdinalIgnoreCase) || !room.IsAdmin(player.PlayerId))
+        {
+            await SendError("Solo el anfitrión puede cambiar el modo de su sala.");
+            return;
+        }
+        if (!room.TrySetRedactorCanGuess(enabled))
+        {
+            await SendError("El modo de juego solo se puede cambiar en la sala de espera.");
+            return;
+        }
+        await BroadcastState(room, excludePlayerId: null);
     }
 
     // ── Expulsar jugador (solo anfitrión, solo en lobby) ───────────────────
@@ -409,7 +428,7 @@ public sealed class GameHub : Hub
 
         if (!ok)
         {
-            await SendError("No puedes enviar estimación ahora (ya enviaste, eres Redactor, o fase incorrecta).");
+            await SendError("No puedes enviar esa estimación: comprueba el modo, la fase y que no hayas respondido ya (máximo ±1.000 billones).");
             return;
         }
 
@@ -448,7 +467,24 @@ public sealed class GameHub : Hub
             return;
         }
 
+        if (room.ToDto(player.PlayerId).GuessesSubmitted == 0)
+        {
+            await SendError("Hace falta al menos una estimación para mostrar resultados.");
+            return;
+        }
         await FinalizeRoundAsync(room);
+    }
+
+    public async Task DistributeDrinks(string targetPlayerId, int amount)
+    {
+        var (room, player) = await GetRoomAndPlayerOrError();
+        if (room is null || player is null) return;
+        if (!room.TryDistributeDrinks(player.PlayerId, targetPlayerId, amount))
+        {
+            await SendError("Solo los ganadores pueden repartir sus tragos pendientes a otro jugador durante los resultados.");
+            return;
+        }
+        await BroadcastState(room, excludePlayerId: null);
     }
 
     // ── Siguiente ronda ────────────────────────────────────────────────────
@@ -468,10 +504,17 @@ public sealed class GameHub : Hub
             await SendError("Espera a los resultados antes de avanzar.");
             return;
         }
+        if (room.HasPendingDistribution)
+        {
+            await SendError("Espera a que los ganadores conectados terminen de repartir sus tragos.");
+            return;
+        }
         bool hasMore = room.TryAdvanceRound();
 
         if (!hasMore)
         {
+            if (room.Phase != GamePhase.Closed) return;
+            await BroadcastState(room, excludePlayerId: null);
             // Juego terminado
             await Clients.Group(room.Code).SendAsync("RoomClosed", "¡Juego terminado! Gracias por jugar.");
             _roomManager.RemoveRoom(room.Code);
@@ -499,6 +542,8 @@ public sealed class GameHub : Hub
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
             await BroadcastState(room, excludePlayerId: null);
+            if (room.ReadyToFinalize) await FinalizeRoundAsync(room);
+            if (room.Players.Count == 0) _roomManager.RemoveRoom(room.Code);
         }
         else
         {
@@ -514,13 +559,26 @@ public sealed class GameHub : Hub
     private async Task FinalizeRoundAsync(Room room)
     {
         if (!await room.FinalizationGate.WaitAsync(0)) return;
-        try { await FinalizeRoundCoreAsync(room); }
+        RoundResult? result;
+        try { result = await FinalizeRoundCoreAsync(room); }
         finally { room.FinalizationGate.Release(); }
+        if (result is null) return;
+
+        var loser = result.Ranking.LastOrDefault(r => r.Rank > 1);
+        if (loser is not null)
+        {
+            using var commentTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var comment = await _gemini.GetSarcasticCommentAsync(
+                result.LoserName, loser.Guess, result.CorrectAnswer, result.Question,
+                room.IsAlcoholFreeRoom, commentTimeout.Token);
+            if (room.TrySetSarcasticComment(result.RoundNumber, comment))
+                await BroadcastState(room, excludePlayerId: null);
+        }
     }
 
-    private async Task FinalizeRoundCoreAsync(Room room)
+    private async Task<RoundResult?> FinalizeRoundCoreAsync(Room room)
     {
-        if (room.Phase != GamePhase.CollectingGuesses) return;
+        if (room.Phase != GamePhase.CollectingGuesses) return null;
 
         var question = room.CurrentQuestion ?? string.Empty;
 
@@ -574,27 +632,22 @@ public sealed class GameHub : Hub
             // En su lugar, notificamos y dejamos que el Redactor envíe nueva pregunta
             // mediante un reset controlado:
             await ResetToWritingQuestionAsync(room);
-            return;
+            return null;
         }
 
-        // El comentario sarcástico de la IA se retiró de la pantalla de resultados,
-        // así que ya no se hace la segunda llamada a Gemini al cerrar la ronda
-        // (era hasta 10 s más de espera para los jugadores). El campo se mantiene
-        // vacío en el DTO por compatibilidad.
         var result = room.FinalizeRound(answerResult.Value, answerResult.Source, sarcasticComment: string.Empty);
-
         if (result is null)
         {
-            await SendError("Error al calcular resultados. Inténtalo de nuevo.");
-            return;
+            await SendError("No quedan estimaciones para calcular los resultados. Envía una respuesta primero.");
+            return null;
         }
 
-        // Broadcast de resultados (ahora sí se revelan todas las estimaciones)
+        // Los resultados se publican antes del comentario para no retrasar el veredicto.
         await BroadcastState(room, excludePlayerId: null);
-
         _logger.LogInformation(
             "Ronda {Round} finalizada en sala {Code}. Respuesta: {Answer} ({Source})",
             result.RoundNumber, room.Code, answerResult.Value, answerResult.Source);
+        return result;
     }
 
     private async Task ResetToWritingQuestionAsync(Room room)
@@ -676,6 +729,7 @@ public sealed class GameHub : Hub
         JoinRejection.NameTaken => $"Ya hay alguien llamado «{name}» en la sala. Elige otro nombre.",
         JoinRejection.RoomFull => $"La sala está completa ({Room.MaxPlayers} jugadores).",
         JoinRejection.RoomClosed => "Esa sala ya se ha cerrado.",
+        JoinRejection.GameStarted => "La partida ya ha empezado. Únete a una nueva sala.",
         JoinRejection.AlreadyJoined => "Ya estás dentro de esta sala.",
         _ => "No se pudo unir a la sala. Inténtalo de nuevo.",
     };

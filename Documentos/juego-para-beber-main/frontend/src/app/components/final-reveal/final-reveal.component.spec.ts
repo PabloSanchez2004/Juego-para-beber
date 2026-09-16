@@ -80,7 +80,7 @@ describe('FinalRevealComponent', () => {
     const styles = getComputedStyle(overlay);
     expect(styles.position).toBe('fixed');
     expect(styles.zIndex).toBe('50');
-    expect(styles.overflow).toBe('hidden');
+    expect(styles.overflowY).not.toBe('hidden');
   });
 
   it('holds the answer for 3 seconds and then reveals the last place first', fakeAsync(() => {
@@ -161,7 +161,7 @@ describe('FinalRevealComponent', () => {
     expect(barWidths()).toEqual(['100%', '60%', '30%']);
   }));
 
-  it('shows the drink rules and the exit button only once everything is revealed', fakeAsync(() => {
+  it('shows the final standing and the exit button only once everything is revealed', fakeAsync(() => {
     withMotion();
     fixture.detectChanges();
 
@@ -172,7 +172,7 @@ describe('FinalRevealComponent', () => {
     fixture.detectChanges();
 
     expect(component.done()).toBeTrue();
-    expect(el.textContent).toContain('Elige quién bebe');
+    expect(el.textContent).toContain('Victoria');
     expect(el.textContent).toContain('Bob');
     expect(el.textContent).toContain('Terminar partida');
   }));
@@ -218,6 +218,24 @@ describe('FinalRevealComponent', () => {
     fixture.detectChanges();
 
     expect(component.compact()).toBeTrue();
+  });
+
+  it('allows skipping while the answer is still on screen', () => {
+    withMotion();
+    fixture.detectChanges();
+    const skip = fixture.nativeElement.querySelector('[aria-label="Saltar la animación y ver la clasificación"]') as HTMLButtonElement;
+    skip.click();
+    expect(component.done()).toBeTrue();
+  });
+
+  it('prevents duplicate finish events while leaving the room', () => {
+    withMotion();
+    fixture.detectChanges();
+    const finish = jasmine.createSpy('finish');
+    component.finish.subscribe(finish);
+    component.busy = true;
+    component.onFinish();
+    expect(finish).not.toHaveBeenCalled();
   });
 
   // ── Helpers ──────────────────────────────────────────────────────────

@@ -98,7 +98,7 @@ public sealed class GeminiService
 
         try
         {
-            var response = await CallGeminiAsync(requestBody, ct);
+            using var response = await CallGeminiAsync(requestBody, ct);
             return ParseAnswerResponse(response);
         }
         catch (OperationCanceledException)
@@ -157,7 +157,7 @@ public sealed class GeminiService
 
         try
         {
-            var response = await CallGeminiAsync(requestBody, ct);
+            using var response = await CallGeminiAsync(requestBody, ct);
             var text = ExtractTextFromResponse(response);
             return string.IsNullOrWhiteSpace(text)
                 ? $"¡{loserName}, eso ha sido legendariamente malo! 🏆"
@@ -187,12 +187,12 @@ public sealed class GeminiService
 
         if (!httpResponse.IsSuccessStatusCode)
         {
-            var errorBody = await httpResponse.Content.ReadAsStringAsync(ct);
+            var errorBody = await httpResponse.Content.ReadAsStringAsync(cts.Token);
             _logger.LogError("Gemini API error {Status}: {Body}", httpResponse.StatusCode, errorBody);
             throw new HttpRequestException($"Gemini API devolvió {httpResponse.StatusCode}: {errorBody}");
         }
 
-        var responseJson = await httpResponse.Content.ReadAsStringAsync(ct);
+        var responseJson = await httpResponse.Content.ReadAsStringAsync(cts.Token);
         return JsonDocument.Parse(responseJson);
     }
 
@@ -255,7 +255,7 @@ public sealed class GeminiService
         new(@"""?IsValid""?\s*:\s*(true|false)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex CorrectAnswerRegex =
-        new(@"""?CorrectAnswer""?\s*:\s*""?(-?\d+(?:[.,]\d+)?)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        new(@"""?CorrectAnswer""?\s*:\s*""?(-?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?)(?=[\s,}""]|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly JsonDocumentOptions TolerantJsonOptions = new()
     {
@@ -299,7 +299,7 @@ public sealed class GeminiService
             // Si llega CorrectAnswer, se acepta aunque IsValid venga a false.
             if (TryReadNumber(root, out var value, "CorrectAnswer", "correctAnswer", "correct_answer", "value"))
             {
-                string source = ReadString(root, "source", "Source");
+                string source = ExtractGroundingSource(doc);
                 string unit = ReadString(root, "unit", "Unit");
                 return new GeminiAnswerResult(value, unit, source, true, expl);
             }
@@ -322,7 +322,8 @@ public sealed class GeminiService
             _logger.LogWarning(ex,
                 "JSON de Gemini inválido (finishReason={Finish}). Intentando rescate por regex. rawResponse={Raw}",
                 finishReason, rawText);
-            return ParseWithRegexFallback(rawText, finishReason);
+            var recovered = ParseWithRegexFallback(rawText, finishReason);
+            return recovered with { Source = ExtractGroundingSource(doc) };
         }
         catch (Exception ex)
         {
@@ -353,7 +354,7 @@ public sealed class GeminiService
         var numMatch = CorrectAnswerRegex.Match(rawText);
         if (numMatch.Success &&
             double.TryParse(numMatch.Groups[1].Value.Replace(',', '.'),
-                NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value))
         {
             _logger.LogInformation("CorrectAnswer recuperado por regex: {Value}", value);
             return new GeminiAnswerResult(
@@ -364,6 +365,23 @@ public sealed class GeminiService
         return GeminiAnswerResult.Unverifiable(finishReason == "MAX_TOKENS"
             ? "La IA se quedó sin tokens antes de terminar la respuesta."
             : "No se pudo parsear la respuesta de la IA.");
+    }
+
+    // Las fuentes proceden del grounding de Google, nunca de una URL inventada en el texto.
+    private static string ExtractGroundingSource(JsonDocument doc)
+    {
+        if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0 &&
+            candidates[0].TryGetProperty("groundingMetadata", out var grounding) &&
+            grounding.TryGetProperty("groundingChunks", out var chunks))
+        {
+            foreach (var chunk in chunks.EnumerateArray())
+            {
+                if (chunk.TryGetProperty("web", out var web) && web.TryGetProperty("uri", out var uri) &&
+                    Uri.TryCreate(uri.GetString(), UriKind.Absolute, out var link) && link.Scheme is "https" or "http")
+                    return link.AbsoluteUri;
+            }
+        }
+        return string.Empty;
     }
 
     private static string GetFinishReason(JsonDocument doc)
@@ -419,12 +437,12 @@ public sealed class GeminiService
             if (prop.ValueKind == JsonValueKind.Number)
             {
                 value = prop.GetDouble();
-                return true;
+                return double.IsFinite(value);
             }
 
             if (prop.ValueKind == JsonValueKind.String &&
                 double.TryParse((prop.GetString() ?? string.Empty).Replace(',', '.'),
-                    NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value))
             {
                 return true;
             }

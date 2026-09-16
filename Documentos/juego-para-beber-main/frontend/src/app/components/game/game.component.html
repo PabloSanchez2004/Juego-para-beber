@@ -20,6 +20,10 @@
       </div>
     </div>
 
+    <p class="mode-note text-gray-400 text-xs mb-5">
+      {{ s.redactorCanGuess ? 'Todos juegan · el redactor también responde' : 'Modo clásico · el redactor no responde' }}
+    </p>
+
     <!-- ── FASE: WritingQuestion ── -->
     @if (isWritingPhase()) {
 
@@ -33,7 +37,7 @@
                 <h2 class="text-xl font-bold text-white">Eres el Redactor</h2>
                 <p class="text-gray-400 text-sm">
                   @if (isFollowUpRound()) {
-                    Te toca: fuiste el más cercano al valor
+                    Te toca preparar la siguiente pregunta
                   } @else {
                     Escribe una pregunta de respuesta numérica
                   }
@@ -41,7 +45,7 @@
               </div>
             </div>
             <p class="text-gray-500 text-xs">
-              Ejemplos: "¿Cuántos km hay de Madrid a Barcelona?",
+              Ejemplos: "¿Cuántos satélites naturales tiene Marte?",
               "¿En qué año se fundó la ONU?", "¿Cuántos huesos tiene el cuerpo humano?"
             </p>
           </div>
@@ -125,10 +129,10 @@
         </p>
       </div>
 
-      <!-- Progreso de estimaciones (sin revelar quién). Esperadas = jugadores conectados - 1 (el Redactor no adivina) -->
+      <!-- Solo se comparte el número de respuestas, nunca las cifras ajenas. -->
       <div class="mb-6">
         <div class="flex justify-between text-sm text-gray-500 mb-2">
-          <span>Estimaciones recibidas <span class="text-gray-600">· el Redactor no adivina</span></span>
+          <span>Estimaciones recibidas</span>
           <span class="text-white font-bold tabular-nums">{{ s.guessesSubmitted }}/{{ guessesExpected() }}</span>
         </div>
         <div class="progress-bar">
@@ -136,34 +140,7 @@
         </div>
       </div>
 
-      @if (isRedactor()) {
-        <!-- Redactor: espera y puede forzar resultados -->
-        <div class="flex-1 flex flex-col items-center justify-center">
-          <div class="text-5xl mb-4 animate-pulse-fast">👀</div>
-          <p class="text-gray-400 text-center mb-6">
-            Esperando que todos estimen...
-          </p>
-
-          @if (errorMsg()) {
-            <div class="alert-error mb-4 w-full animate-shake" role="alert">
-              ⚠️ {{ errorMsg() }}
-            </div>
-          }
-
-          <button
-            class="btn-secondary w-full"
-            [disabled]="loading()"
-            (click)="forceResults()"
-            aria-label="Cerrar ronda y ver resultados">
-            @if (loading()) {
-              Calculando...
-            } @else {
-              ⏭️ Cerrar ronda (sin esperar a todos)
-            }
-          </button>
-        </div>
-
-      } @else {
+      @if (canGuess()) {
         <!-- Estimador: envía su estimación -->
         <div class="flex-1 flex flex-col animate-slide-up">
 
@@ -183,6 +160,8 @@
                 (input)="onGuessInput($event)"
                 [disabled]="guessSent() || loading()"
                 autocomplete="off"
+                maxlength="24"
+                (keydown.enter)="submitGuess()"
                 aria-label="Escribe tu estimación numérica"
                 aria-describedby="guess-preview">
 
@@ -193,7 +172,7 @@
                   </span>
                 } @else {
                   <span class="text-slate-500 text-sm">
-                    Escribe el número entero. 7000000 se lee como 7 millones.
+                    Usa coma para decimales. 7000000 se lee como 7 millones.
                   </span>
                 }
               </p>
@@ -238,6 +217,26 @@
               </div>
             </div>
           }
+        </div>
+      } @else {
+        <div class="card text-center mb-5">
+          <p class="text-white font-semibold mb-2">Tu pregunta está en juego</p>
+          <p class="text-gray-400 text-sm">En el modo clásico observas esta ronda. Las estimaciones permanecen secretas hasta el veredicto.</p>
+        </div>
+      }
+
+      @if (canCloseRound()) {
+        <div class="mt-6">
+          @if (errorMsg() && !canGuess()) {
+            <div class="alert-error mb-4" role="alert">{{ errorMsg() }}</div>
+          }
+          <p class="text-gray-500 text-xs text-center mb-3">
+            La ronda se cierra cuando todos responden. También puedes cerrarla con las respuestas recibidas.
+          </p>
+          <button class="btn-secondary w-full" [disabled]="loading() || s.guessesSubmitted === 0"
+                  (click)="forceResults()" aria-label="Cerrar ronda y ver resultados">
+            {{ loading() ? 'Procesando…' : 'Cerrar ronda y ver el veredicto' }}
+          </button>
         </div>
       }
     }

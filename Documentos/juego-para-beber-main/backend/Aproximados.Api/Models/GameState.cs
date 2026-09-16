@@ -4,7 +4,7 @@ namespace Aproximados.Api.Models;
 /// Estado inmutable de la ronda actual, generado al pasar a ShowingResults.
 /// Contiene el ranking calculado y los castigos asignados.
 /// </summary>
-public sealed class RoundResult
+public sealed record RoundResult
 {
     public int RoundNumber { get; init; }
     public string Question { get; init; } = string.Empty;
@@ -28,7 +28,16 @@ public sealed class RoundResult
 
     /// <summary>Tragos/chupito que recibe el perdedor.</summary>
     public int LoserPenalty { get; init; }
+
+    public int RedactorPenalty { get; init; }
+    public string RedactorPenaltyDescription { get; init; } = string.Empty;
+
+    /// <summary>Tragos ya asignados por cada ganador, sin exceder su presupuesto.</summary>
+    public IReadOnlyDictionary<string, int> DrinksDistributedByWinner { get; init; } = new Dictionary<string, int>();
+    public IReadOnlyList<DrinkAssignment> DrinkAssignments { get; init; } = [];
 }
+
+public sealed record DrinkAssignment(string FromPlayerId, string ToPlayerId, int Amount);
 
 /// <summary>Resultado individual de un jugador en una ronda.</summary>
 public sealed record PlayerRoundResult
@@ -73,6 +82,7 @@ public sealed class GameStateDto
     public RoundResult? LastResult { get; init; }
     public int MaxRounds { get; init; }
     public bool IsAlcoholFreeRoom { get; init; }
+    public bool RedactorCanGuess { get; init; }
 
     /// <summary>Cuántos jugadores han enviado estimación (sin revelar quiénes).</summary>
     public int GuessesSubmitted { get; init; }

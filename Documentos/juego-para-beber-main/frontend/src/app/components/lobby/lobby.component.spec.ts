@@ -19,6 +19,7 @@ const mockState: GameStateDto = {
   lastResult: null,
   maxRounds: 10,
   isAlcoholFreeRoom: false,
+  redactorCanGuess: false,
   guessesSubmitted: 0,
   guessesExpected: 0,
 };
@@ -36,7 +37,7 @@ describe('LobbyComponent', () => {
 
     mockRoomService = jasmine.createSpyObj(
       'RoomService',
-      ['startGame', 'leaveRoom', 'kickPlayer'],
+      ['startGame', 'leaveRoom', 'kickPlayer', 'setRedactorCanGuess'],
       {
         gameState$: gameState$.asObservable(),
         error$: new Subject<string>().asObservable(),
@@ -117,7 +118,7 @@ describe('LobbyComponent', () => {
     expect(component.isAdmin()).toBeTrue();
     expect(component.adminName()).toBe('Ana');
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('¡EMPEZAR PARTIDA!');
+    expect(el.querySelector('[aria-label="Empezar partida"]')).not.toBeNull();
   });
 
   it('a guest is not admin and cannot start the game', async () => {
@@ -127,8 +128,8 @@ describe('LobbyComponent', () => {
     expect(component.canStart()).toBeFalse();
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).not.toContain('¡EMPEZAR PARTIDA!');
-    expect(el.textContent).toContain('Esperando a que el Host le dé a empezar');
+    expect(el.querySelector('[aria-label="Empezar partida"]')).toBeNull();
+    expect(el.textContent).toContain('Esperando a Ana para empezar');
 
     await component.startGame();
     expect(mockRoomService.startGame).not.toHaveBeenCalled();
@@ -177,5 +178,48 @@ describe('LobbyComponent', () => {
   it('builds a direct invite link with the room code', () => {
     expect(component.inviteLink()).toBe(`${window.location.origin}/join/ABCD`);
     expect(fixture.nativeElement.textContent).toContain('Copiar enlace de invitación');
+  });
+});
+
+// These checks verify server-authoritative mode selection across participants.
+describe('Lobby mode selection', () => {
+  let component: LobbyComponent;
+  let service: jasmine.SpyObj<RoomService>;
+  beforeEach(() => {
+    service = jasmine.createSpyObj('RoomService', ['setRedactorCanGuess'], {
+      localPlayer: { playerId: 'p1' },
+    });
+    component = new LobbyComponent(service, jasmine.createSpyObj('Router', ['navigate']));
+    component.state.set(mockState);
+  });
+  it('saves the selected mode without optimistically changing shared state', async () => {
+    service.setRedactorCanGuess.and.resolveTo();
+    await component.selectMode(true);
+    expect(service.setRedactorCanGuess).toHaveBeenCalledWith(true);
+    expect(component.state()?.redactorCanGuess).toBeFalse();
+    expect(component.modeSaving()).toBeFalse();
+  });
+  it('prevents starting while the mode is being saved', async () => {
+    let finish!: () => void;
+    service.setRedactorCanGuess.and.returnValue(new Promise(resolve => finish = resolve));
+    const pending = component.selectMode(true);
+    expect(component.canStart()).toBeFalse();
+    await component.selectMode(false);
+    expect(service.setRedactorCanGuess).toHaveBeenCalledTimes(1);
+    finish();
+    await pending;
+    expect(component.canStart()).toBeTrue();
+  });
+  it('prevents guests from changing mode', async () => {
+    component.state.set({ ...mockState, adminPlayerId: 'p2', players: mockState.players.map(p => ({...p, isAdmin: p.playerId === 'p2'})) });
+    await component.selectMode(true);
+    expect(service.setRedactorCanGuess).not.toHaveBeenCalled();
+  });
+  it('leaves the previous selection when saving fails', async () => {
+    service.setRedactorCanGuess.and.rejectWith(new Error('offline'));
+    await component.selectMode(true);
+    expect(component.errorMsg()).toContain('No se pudo cambiar');
+    expect(component.state()?.redactorCanGuess).toBeFalse();
+    expect(component.modeSaving()).toBeFalse();
   });
 });

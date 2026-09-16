@@ -51,6 +51,12 @@ const path = require('node:path');
     await guest.getByText('Cris QA', { exact: true }).waitFor();
     assert.equal(await guest.locator('.player-chip').filter({ hasText: 'Bob QA' }).count(), 1);
     console.log('PASS reload restores seat without duplicate');
+    await host.getByRole('button', { name: /Todos responden/ }).click();
+    await guest.getByRole('button', { name: /Todos responden/ }).filter({ has: guest.locator('small', { hasText: 'Seleccionado' }) }).waitFor();
+    assert.equal(await guest.getByRole('button', { name: /Todos responden/ }).isDisabled(), true);
+    await host.getByRole('button', { name: /Solo pregunta/ }).click();
+    await guest.getByRole('button', { name: /Solo pregunta/ }).filter({ has: guest.locator('small', { hasText: 'Seleccionado' }) }).waitFor();
+    console.log('PASS host-only mode selection synchronizes with guests');
     await host.getByRole('button', { name: /Empezar partida/ }).click();
     await Promise.all(pages.map(p => p.waitForURL('**/game')));
     let writer;
@@ -59,6 +65,8 @@ const path = require('node:path');
     await writer.locator('#question-input').fill('¿Cuántos huesos tiene un adulto?');
     await writer.getByRole('button', { name: /Enviar pregunta/ }).click();
     const estimators = pages.filter(p => p !== writer);
+    assert.equal(await writer.locator('#guess-input').count(), 0);
+    console.log('PASS Solo pregunta excludes writer');
     await estimators[0].locator('#guess-input').fill('200');
     await estimators[0].getByRole('button', { name: /Enviar estimación/ }).click();
     await estimators[0].getByRole('heading', { name: '¡Enviado!' }).waitFor();
@@ -71,6 +79,47 @@ const path = require('node:path');
     // With no local API key, the round returns to writing instead of inventing a result.
     await writer.locator('#question-input').waitFor({ timeout: 30000 });
     console.log('PASS unavailable AI returns to question entry');
+    // Leave the first game and verify the inclusive mode in another real room.
+    for (const p of pages) {
+      await p.evaluate(async () => {
+        const component = window.ng.getComponent(document.querySelector('app-game'));
+        await component.roomService.leaveRoom();
+      });
+      await p.waitForURL(url => url.pathname === '/');
+    }
+    await host.getByRole('button', { name: /Crear sala/ }).click();
+    await host.getByLabel('Tu nombre', { exact: true }).fill('Ana modo');
+    await host.getByRole('button', { name: 'Crear sala', exact: true }).click();
+    await host.waitForURL('**/lobby');
+    const inclusiveSession = await host.evaluate(() => JSON.parse(sessionStorage.getItem('aproximados_session')));
+    for (let i = 1; i < pages.length; i++) {
+      await pages[i].goto(`${process.env.APP_URL || 'http://localhost:4300'}/join/${inclusiveSession.roomCode}`);
+      await pages[i].getByLabel('Tu nombre', { exact: true }).fill(['', 'Bob modo', 'Cris modo'][i]);
+      await pages[i].getByRole('button', { name: /Unirse a la sala/ }).click();
+      await pages[i].waitForURL('**/lobby');
+    }
+    await host.getByRole('button', { name: /Todos responden/ }).click();
+    await host.getByRole('button', { name: /Empezar partida/ }).click();
+    await Promise.all(pages.map(p => p.waitForURL('**/game')));
+    const inclusiveWriter = (await Promise.all(pages.map(async p => await p.locator('#question-input').count() ? p : null))).find(Boolean);
+    assert.ok(inclusiveWriter);
+    await inclusiveWriter.locator('#question-input').fill('¿Cuántos huesos tiene un adulto?');
+    await inclusiveWriter.getByRole('button', { name: /Enviar pregunta/ }).click();
+    await Promise.all(pages.map(p => p.locator('#guess-input').waitFor()));
+    for (const p of pages) assert.ok(await p.getByText('0/3', { exact: true }).count());
+    await inclusiveWriter.locator('#guess-input').fill('206');
+    await inclusiveWriter.getByRole('button', { name: /Enviar estimación/ }).click();
+    await inclusiveWriter.getByRole('heading', { name: '¡Enviado!' }).waitFor();
+    await inclusiveWriter.reload();
+    await inclusiveWriter.getByRole('heading', { name: '¡Enviado!' }).waitFor();
+    await inclusiveWriter.screenshot({ path: 'docs/redactor-responde-mobile.png', fullPage: true });
+    console.log('PASS Todos responden accepts writer guess and preserves it after reload');
+    for (const p of pages.filter(p => p !== inclusiveWriter)) {
+      await p.locator('#guess-input').fill('210');
+      await p.getByRole('button', { name: /Enviar estimación/ }).click();
+    }
+    await inclusiveWriter.locator('#question-input').waitFor({ timeout: 30000 });
+    console.log('PASS inclusive round completes collection without blocking');
     for (const p of pages) assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Game horizontal overflow');
     assert.deepEqual(errors, []);
     console.log('PASS zero JS errors; desktop/mobile no horizontal overflow');

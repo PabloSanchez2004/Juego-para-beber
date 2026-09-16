@@ -45,6 +45,9 @@ public enum JoinRejection
     /// <summary>La sala ya se cerró.</summary>
     RoomClosed,
 
+    /// <summary>Las incorporaciones nuevas solo se permiten en el lobby.</summary>
+    GameStarted,
+
     /// <summary>Se alcanzó el máximo de jugadores.</summary>
     RoomFull,
 

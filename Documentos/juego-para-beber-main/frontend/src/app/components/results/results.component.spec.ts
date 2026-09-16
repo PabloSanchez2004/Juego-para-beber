@@ -37,6 +37,10 @@ const mockResult: RoundResult = {
   loserName: 'Carlos',
   drinksToDistribute: 3,
   loserPenalty: 2,
+  redactorPenalty: 0,
+  redactorPenaltyDescription: '',
+  drinksDistributedByWinner: {},
+  drinkAssignments: [],
 };
 
 const mockState: GameStateDto = {
@@ -54,6 +58,7 @@ const mockState: GameStateDto = {
   lastResult: mockResult,
   maxRounds: 5,
   isAlcoholFreeRoom: false,
+  redactorCanGuess: false,
   guessesSubmitted: 2,
   guessesExpected: 2,
 };
@@ -67,7 +72,7 @@ describe('ResultsComponent', () => {
   beforeEach(async () => {
     gameState$ = new BehaviorSubject<GameStateDto | null>(mockState);
 
-    mockRoomService = jasmine.createSpyObj('RoomService', ['nextRound', 'leaveRoom'], {
+    mockRoomService = jasmine.createSpyObj('RoomService', ['nextRound', 'leaveRoom', 'distributeDrinks'], {
       gameState$: gameState$.asObservable(),
       error$: new Subject<string>().asObservable(),
       localPlayer: { playerId: 'p2', roomCode: 'TEST', name: 'Bob', alcoholFree: false },
@@ -187,18 +192,7 @@ describe('ResultsComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('.badge-gold')?.textContent).toContain('¡Reparte');
     expect(el.querySelector('.badge-red')?.textContent).toContain('¡Te toca beber!');
-    expect(el.textContent).not.toContain('La IA opina');
-  });
-
-  it('paints the loser card in aggressive red and the winner with gold glow', () => {
-    const el: HTMLElement = fixture.nativeElement;
-    const loser = el.querySelector('[aria-label="Carlos, posición 2"]') as HTMLElement;
-    const winner = el.querySelector('[aria-label="Bob, posición 1"]') as HTMLElement;
-
-    expect(loser.className).toContain('bg-red-900/50');
-    expect(loser.className).toContain('border-red-500');
-    expect(loser.querySelector('.badge-red')?.classList.contains('animate-pulse')).toBeTrue();
-    expect(winner.className).toContain('shadow-[0_0_10px_rgba(234,179,8,0.3)]');
+    expect(el.textContent).toContain(mockResult.sarcasticComment);
   });
 
   it('should resolve the redactor name', () => {
@@ -238,6 +232,7 @@ describe('ResultsComponent', () => {
   });
 
   it('should call nextRound on service', async () => {
+    gameState$.next({ ...mockState, adminPlayerId: 'p2', lastResult: { ...mockResult, drinksDistributedByWinner: { p2: 3 } } });
     mockRoomService.nextRound.and.returnValue(Promise.resolve());
     await component.nextRound();
     expect(mockRoomService.nextRound).toHaveBeenCalled();
@@ -272,16 +267,20 @@ describe('ResultsComponent', () => {
     expect(podium[0].barPercent).toBeCloseTo((10 / 110) * 100, 5);
   });
 
-  it('the last round hands the screen over to the full-screen ceremony', () => {
+  it('keeps the last round results until its drinks have been distributed', () => {
     gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5 });
     fixture.detectChanges();
-
     const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('app-final-reveal')).toBeNull();
+    expect(el.textContent).toContain('Ranking de la ronda');
+    component.openFinal();
+    expect(component.showFinal()).toBeFalse();
+
+    gameState$.next({ ...mockState, roundNumber: 5, maxRounds: 5,
+      lastResult: { ...mockResult, drinksDistributedByWinner: { p2: 3 } } });
+    component.openFinal();
+    fixture.detectChanges();
     expect(el.querySelector('app-final-reveal')).toBeTruthy();
-    expect(el.querySelector('.reveal-overlay')).toBeTruthy();
-    // La vista de resultados normal queda fuera: la ceremonia la sustituye.
-    expect(el.textContent).not.toContain('Ranking de la ronda');
-    expect(el.textContent).not.toContain('Siguiente ronda');
   });
 
   it('keeps the normal results view on intermediate rounds', () => {
@@ -295,4 +294,60 @@ describe('ResultsComponent', () => {
     await component.finishGame();
     expect(mockRoomService.leaveRoom).toHaveBeenCalled();
   });
+  it('shows the easy-question penalty and the AI comment', () => {
+    gameState$.next({ ...mockState, lastResult: { ...mockResult, redactorPenalty: 1,
+      redactorPenaltyDescription: 'Todos acertaron: un trago para el redactor.' } });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Todos acertaron');
+    expect(fixture.nativeElement.textContent).toContain(mockResult.sarcasticComment);
+  });
+
+  it('allocates a drink to the chosen player and preserves the server budget', async () => {
+    mockRoomService.distributeDrinks.and.returnValue(Promise.resolve());
+    expect(component.myDrinksRemaining()).toBe(3);
+    await component.distributeTo('p3');
+    expect(mockRoomService.distributeDrinks).toHaveBeenCalledWith('p3', 1);
+    gameState$.next({ ...mockState, lastResult: { ...mockResult, drinksDistributedByWinner: { p2: 1 },
+      drinkAssignments: [{ fromPlayerId: 'p2', toPlayerId: 'p3', amount: 1 }] } });
+    fixture.detectChanges();
+    expect(component.myDrinksRemaining()).toBe(2);
+    expect(component.assignmentLines()[0].toName).toBe('Carlos');
+  });
+
+  it('does not allocate to the winner or spend an exhausted budget', async () => {
+    await component.distributeTo('p2');
+    expect(mockRoomService.distributeDrinks).not.toHaveBeenCalled();
+    gameState$.next({ ...mockState, lastResult: { ...mockResult, drinksDistributedByWinner: { p2: 3 } } });
+    await component.distributeTo('p3');
+    expect(mockRoomService.distributeDrinks).not.toHaveBeenCalled();
+  });
+
+  it('prevents advancing while a connected winner has a pending distribution', async () => {
+    gameState$.next({ ...mockState, adminPlayerId: 'p2' });
+    await component.nextRound();
+    expect(mockRoomService.nextRound).not.toHaveBeenCalled();
+    expect(component.canAdvance()).toBeFalse();
+  });
+
+  it('does not block progress for a disconnected winner', () => {
+    gameState$.next({ ...mockState, adminPlayerId: 'p2',
+      players: mockState.players.map(p => p.playerId === 'p2' ? { ...p, isConnected: false } : p) });
+    expect(component.pendingDistributors()).toEqual([]);
+  });
+
+  it('does not expose drinks to distribute to a player who lost the round', async () => {
+    gameState$.next({ ...mockState, lastResult: { ...mockResult,
+      ranking: mockResult.ranking.map(p => ({ ...p, rank: p.playerId === 'p3' ? 1 : 2 })) } });
+    expect(component.myDrinksRemaining()).toBe(0);
+    await component.distributeTo('p3');
+    expect(mockRoomService.distributeDrinks).not.toHaveBeenCalled();
+  });
+
+  it('releases loading after a failed distribution', async () => {
+    mockRoomService.distributeDrinks.and.returnValue(Promise.reject(new Error('Network failed')));
+    await component.distributeTo('p3');
+    expect(component.loading()).toBeFalse();
+    expect(component.errorMsg()).toContain('No se pudo repartir');
+  });
+
 });

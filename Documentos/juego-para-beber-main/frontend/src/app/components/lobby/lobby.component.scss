@@ -1,3 +1,22 @@
-:host {
-  display: block;
-}
+:host { display: block; }
+.lobby-page { padding-inline: 24px; }
+.lobby-page > div:first-child { border-bottom: 1px solid #36402f; padding-bottom: 16px; margin-bottom: 30px; }
+.lobby-page > div:first-child > span { font-size: 10px; letter-spacing: .12em; }
+.lobby-page > div:first-child button { font-size: 13px; }
+.lobby-page > .text-center > .btn-secondary { max-width: 340px; margin-inline: auto; }
+.game-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.game-mode-option { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; text-align: left; background: #192014; border: 1px solid #424e37; border-radius: 14px; transition: background .18s, border-color .18s; }
+.game-mode-option:disabled { cursor: default; }
+.game-mode-option:hover:not(:disabled) { border-color: #94a672; background: #2c3722; }
+.game-mode-option strong { font-size: 14px; line-height: 1.3; font-weight: 750; }
+.game-mode-option > span:not(.mode-icon) { font-size: 12px; line-height: 1.65; color: #afbaa0; }
+.game-mode-option small { font-size: 10px; font-weight: 600; line-height: 1.45; color: #a4b195; margin-top: auto; padding-top: 5px; }
+.game-mode-option.selected { border-color: #d8f36a; background: #303e21; box-shadow: inset 0 0 0 1px #d8f36a20; }
+.game-mode-option.selected strong, .game-mode-option.selected small { color: #e3f5a7; }
+.mode-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #303b25; color: #bacaa3; font-size: 10px; font-weight: 750; }
+.selected .mode-icon { color: #243310; background: #d8f36a; }
+.player-chip > div:first-child { border-radius: 12px; }
+.lobby-actions { background: linear-gradient(0deg,#151914 80%,#15191400); padding-inline: 24px; }
+.lobby-actions .btn-primary { display: flex; align-items: center; justify-content: space-between; }
+.lobby-actions .card { padding: 16px; }
+@media(max-width:380px) { .lobby-page,.lobby-actions { padding-inline: 16px; } .game-mode-option { padding: 12px; } .game-mode-option strong { font-size: 13px; } .game-mode-option > span:not(.mode-icon) { font-size: 11px; } }
