@@ -31,6 +31,11 @@ article .text-red-300\/80 { color: #f3bfa5; }
 
 .results-page { padding-top: max(24px, env(safe-area-inset-top)); }
 .rank-error { max-width: 34%; overflow-wrap: anywhere; }
+.points-earned { color: #d8f36a; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.joker-result { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 11px; border: 1px solid; border-radius: 10px; font-size: 11px; line-height: 1.4; }
+.joker-result.won { color: #ffe49a; border-color: #8d7840; background: #4a3d1d66; }
+.joker-result.lost { color: #d7a48b; border-color: #76503e; background: #4b2f2466; }
+.joker-result-mark { flex: 0 0 auto; display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid currentColor; border-radius: 8px; font-weight: 900; }
 .rank-card .tabular-nums { overflow-wrap: anywhere; }
 .drink-allocation li { overflow-wrap: anywhere; }
 @media(max-width:600px) {

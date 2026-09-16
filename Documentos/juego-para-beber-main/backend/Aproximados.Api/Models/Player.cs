@@ -46,7 +46,13 @@ public sealed class Player
     /// <summary>Rol asignado en la ronda actual.</summary>
     public PlayerRole Role { get; set; } = PlayerRole.Estimator;
 
-    /// <summary>Victorias acumuladas: un punto por ronda ganada, también en empate.</summary>
+    /// <summary>El comodín Doble o nada solo puede jugarse una vez por partida.</summary>
+    public bool DoubleOrNothingAvailable { get; set; } = true;
+
+    /// <summary>Indica que el jugador arriesgó su puntuación en la ronda actual.</summary>
+    public bool UsedDoubleOrNothingThisRound { get; set; }
+
+    /// <summary>Puntos acumulados según la precisión porcentual de cada estimación.</summary>
     public int Score { get; set; }
 
     /// <summary>Tragos acumulados que debe beber.</summary>
@@ -81,6 +87,16 @@ public sealed class Player
     {
         Guess = null;
         Role = PlayerRole.Estimator;
+        UsedDoubleOrNothingThisRound = false;
+    }
+
+    /// <summary>Deshace una respuesta cuando la IA invalida la pregunta.</summary>
+    public void ResetGuessForRetry()
+    {
+        Guess = null;
+        if (UsedDoubleOrNothingThisRound)
+            DoubleOrNothingAvailable = true;
+        UsedDoubleOrNothingThisRound = false;
     }
 
     /// <summary>
@@ -89,7 +105,9 @@ public sealed class Player
     /// </summary>
     public PlayerPublicDto ToPublicDto(GamePhase phase, string requestingPlayerId)
     {
-        bool revealGuess = phase == GamePhase.ShowingResults || PlayerId == requestingPlayerId;
+        bool isSelf = PlayerId == requestingPlayerId;
+        bool revealGuess = phase == GamePhase.ShowingResults || isSelf;
+        bool revealJokerUse = phase == GamePhase.ShowingResults || isSelf;
         return new PlayerPublicDto(
             PlayerId,
             Name,
@@ -99,7 +117,9 @@ public sealed class Player
             IsConnected,
             AlcoholFree,
             revealGuess ? Guess : null,
-            IsAdmin
+            IsAdmin,
+            isSelf && DoubleOrNothingAvailable,
+            revealJokerUse && UsedDoubleOrNothingThisRound
         );
     }
 }
@@ -114,5 +134,7 @@ public sealed record PlayerPublicDto(
     bool IsConnected,
     bool AlcoholFree,
     double? Guess,
-    bool IsAdmin
+    bool IsAdmin,
+    bool DoubleOrNothingAvailable,
+    bool UsedDoubleOrNothingThisRound
 );

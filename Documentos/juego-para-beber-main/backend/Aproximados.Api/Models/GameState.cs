@@ -56,6 +56,17 @@ public sealed record PlayerRoundResult
     /// <summary>Posición en el ranking (1 = mejor).</summary>
     public int Rank { get; init; }
 
+    /// <summary>
+    /// Puntos finales obtenidos esta ronda, después de aplicar el comodín.
+    /// </summary>
+    public int PointsEarned { get; init; }
+
+    /// <summary>Puntos proporcionales antes de aplicar Doble o nada.</summary>
+    public int BasePoints { get; init; }
+
+    public bool UsedDoubleOrNothing { get; init; }
+    public bool DoubleOrNothingWon { get; init; }
+
     /// <summary>Tragos recibidos esta ronda.</summary>
     public int DrinksThisRound { get; init; }
 

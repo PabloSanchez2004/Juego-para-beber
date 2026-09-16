@@ -13,8 +13,8 @@ const mockState: GameStateDto = {
   redactorPlayerId: 'p1',
   adminPlayerId: 'p1',
   players: [
-    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: true },
-    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: false },
+    { playerId: 'p1', name: 'Ana', role: 'Redactor', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: true, doubleOrNothingAvailable: false, usedDoubleOrNothingThisRound: false },
+    { playerId: 'p2', name: 'Bob', role: 'Estimator', score: 0, drinksOwed: 0, isConnected: true, alcoholFree: false, guess: null, isAdmin: false, doubleOrNothingAvailable: true, usedDoubleOrNothingThisRound: false },
   ],
   lastResult: null,
   maxRounds: 5,
@@ -136,7 +136,17 @@ describe('GameComponent', () => {
     gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
     component.guessInput.set('1.234');
     await component.submitGuess();
-    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(1234);
+    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(1234, false);
+  });
+
+  it('submits an activated Doble o nada as a secret choice', async () => {
+    mockRoomService.submitGuess.and.returnValue(Promise.resolve());
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
+    component.guessInput.set('1.234');
+    component.toggleDoubleOrNothing();
+    expect(component.doubleOrNothing()).toBeTrue();
+    await component.submitGuess();
+    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(1234, true);
   });
 
   it('should mark guessSent on GuessAcknowledged', () => {
@@ -201,7 +211,7 @@ describe('GameComponent', () => {
     mockRoomService.submitGuess.and.returnValue(Promise.resolve());
     component.guessInput.set('42');
     await component.submitGuess();
-    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(42);
+    expect(mockRoomService.submitGuess).toHaveBeenCalledWith(42, false);
   });
 
   it('restores the author’s zero guess after reconnecting in all-play mode', () => {

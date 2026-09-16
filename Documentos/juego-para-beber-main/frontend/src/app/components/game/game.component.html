@@ -144,6 +144,23 @@
                   <span class="text-slate-500 text-sm">Usa coma para decimales. 7000000 se lee como 7 millones.</span>
                 }
               </p>
+
+              @if (doubleOrNothingAvailable()) {
+                <button type="button" class="joker-card" [class.active]="doubleOrNothing()"
+                  [attr.aria-pressed]="doubleOrNothing()" (click)="toggleDoubleOrNothing()"
+                  [disabled]="loading()">
+                  <span class="joker-copy">
+                    <span class="joker-kicker">COMODÍN · UNA VEZ POR PARTIDA</span>
+                    <strong>Doble o nada</strong>
+                    <small>Hasta 10 % de error: puntos ×2. Si te pasas: 0 puntos.</small>
+                  </span>
+                  <span class="joker-mark" aria-hidden="true">×2</span>
+                </button>
+              } @else {
+                <div class="joker-spent" aria-label="Comodín Doble o nada ya utilizado">
+                  <span>×2</span> Doble o nada ya utilizado
+                </div>
+              }
             </div>
 
             <button
@@ -158,7 +175,7 @@
                   <span class="loading-dot" style="animation-delay:300ms"></span>
                 </span>
               } @else {
-                Enviar estimación <span aria-hidden="true">↗</span>
+                {{ doubleOrNothing() ? 'Jugar doble o nada' : 'Enviar estimación' }} <span aria-hidden="true">↗</span>
               }
             </button>
           } @else {
@@ -168,6 +185,9 @@
               <p class="guess-sent">{{ formattedResolvedGuess() }}</p>
               @if (guessPreview() && guessPreview() !== formattedResolvedGuess()) {
                 <p class="text-lime-400 text-sm font-black">{{ guessPreview() }}</p>
+              }
+              @if (doubleOrNothing()) {
+                <p class="joker-secret"><span>×2</span> Doble o nada activado · sigue en secreto</p>
               }
               <p>{{ s.guessesSubmitted >= guessesExpected() ? 'La IA está comprobando el dato. Enseguida llega el veredicto.' : 'Esperando al resto. Las cifras ajenas siguen en secreto.' }}</p>
             </div>

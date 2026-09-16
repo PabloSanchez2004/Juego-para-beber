@@ -43,8 +43,9 @@ public class GameRulesTests
         var result = room.FinalizeRound(100, "test", "")!;
         Assert.Equal(3, result.Ranking.Count);
         Assert.Equal("p1", result.Ranking[0].PlayerId);
-        Assert.Equal(1, room.Players.Single(p => p.PlayerId == "p1").Score);
-        Assert.All(room.Players.Where(p => p.PlayerId != "p1"), p => Assert.Equal(0, p.Score));
+        Assert.Equal(100, room.Players.Single(p => p.PlayerId == "p1").Score);
+        Assert.Equal(50, room.Players.Single(p => p.PlayerId == "p2").Score);
+        Assert.Equal(0, room.Players.Single(p => p.PlayerId == "p3").Score);
         Assert.True(room.TryDistributeDrinks("p1", "p2", 1));
         Assert.True(room.TryAdvanceRound());
         Assert.Equal("p1", room.RedactorPlayerId);
@@ -111,7 +112,7 @@ public class GameRulesTests
     }
 
     [Fact]
-    public void EveryTiedWinnerGetsOnePointAndNoLoser()
+    public void EveryTiedWinnerGetsTheSameProportionalScoreAndNoLoser()
     {
         var room = CreateRoom();
         room.TrySubmitGuess("p2", 90);
@@ -120,7 +121,7 @@ public class GameRulesTests
         Assert.All(result.Ranking, r => Assert.Equal(1, r.Rank));
         Assert.Equal(0, result.LoserPenalty);
         Assert.Equal("", result.LoserName);
-        Assert.All(room.Players.Where(p => p.PlayerId != "p1"), p => Assert.Equal(1, p.Score));
+        Assert.All(room.Players.Where(p => p.PlayerId != "p1"), p => Assert.Equal(90, p.Score));
     }
 
     [Theory]
@@ -226,5 +227,99 @@ public class GameRulesTests
         var result = room.FinalizeRound(0, "test", "")!;
         Assert.Equal(1, result.Ranking.Single(p => p.PlayerId == "p2").Rank);
         Assert.Equal(2, result.Ranking.Single(p => p.PlayerId == "p3").Rank);
+    }
+
+    [Theory]
+    [InlineData(0, 100)]
+    [InlineData(0.4, 100)]
+    [InlineData(0.5, 100)]
+    [InlineData(1, 99)]
+    [InlineData(12.4, 88)]
+    [InlineData(12.5, 88)]
+    [InlineData(50, 50)]
+    [InlineData(99.4, 1)]
+    [InlineData(99.5, 1)]
+    [InlineData(100, 0)]
+    [InlineData(1000, 0)]
+    public void PercentageErrorMapsLinearlyToPoints(double errorPercent, int expected)
+    {
+        Assert.Equal(expected, Room.ComputePoints(errorPercent));
+    }
+
+    [Fact]
+    public void EveryEstimatorAddsProportionalPointsToTheirTotal()
+    {
+        var room = CreateRoom();
+        room.TrySubmitGuess("p2", 100); // 0% error -> 100
+        room.TrySubmitGuess("p3", 125); // 25% error -> 75
+
+        var result = room.FinalizeRound(100, "test", "")!;
+
+        Assert.Equal(100, result.Ranking.Single(r => r.PlayerId == "p2").PointsEarned);
+        Assert.Equal(75, result.Ranking.Single(r => r.PlayerId == "p3").PointsEarned);
+        Assert.Equal(100, room.Players.Single(p => p.PlayerId == "p2").Score);
+        Assert.Equal(75, room.Players.Single(p => p.PlayerId == "p3").Score);
+    }
+
+    [Fact]
+    public void DoubleOrNothingDoublesPointsInsideTenPercent()
+    {
+        var room = CreateRoom();
+        Assert.True(room.TrySubmitGuess("p2", 110, true).Ok); // 10% -> 90 base
+        room.TrySubmitGuess("p3", 150);
+
+        var result = room.FinalizeRound(100, "test", "")!;
+        var risky = result.Ranking.Single(r => r.PlayerId == "p2");
+
+        Assert.Equal(90, risky.BasePoints);
+        Assert.Equal(180, risky.PointsEarned);
+        Assert.True(risky.UsedDoubleOrNothing);
+        Assert.True(risky.DoubleOrNothingWon);
+        Assert.Equal(180, room.Players.Single(p => p.PlayerId == "p2").Score);
+        Assert.False(room.Players.Single(p => p.PlayerId == "p2").DoubleOrNothingAvailable);
+    }
+
+    [Fact]
+    public void DoubleOrNothingAwardsZeroOutsideTenPercent()
+    {
+        var room = CreateRoom();
+        room.TrySubmitGuess("p2", 111, true);
+        room.TrySubmitGuess("p3", 150);
+
+        var risky = room.FinalizeRound(100, "test", "")!.Ranking.Single(r => r.PlayerId == "p2");
+
+        Assert.Equal(89, risky.BasePoints);
+        Assert.Equal(0, risky.PointsEarned);
+        Assert.False(risky.DoubleOrNothingWon);
+    }
+
+    [Fact]
+    public void DoubleOrNothingUseStaysSecretUntilResults()
+    {
+        var room = CreateRoom();
+        room.TrySubmitGuess("p2", 100, true);
+
+        Assert.True(room.ToDto("p2").Players.Single(p => p.PlayerId == "p2").UsedDoubleOrNothingThisRound);
+        Assert.False(room.ToDto("p3").Players.Single(p => p.PlayerId == "p2").UsedDoubleOrNothingThisRound);
+        Assert.False(room.ToDto("p3").Players.Single(p => p.PlayerId == "p2").DoubleOrNothingAvailable);
+
+        room.TrySubmitGuess("p3", 120);
+        room.FinalizeRound(100, "test", "");
+        Assert.True(room.ToDto("p3").Players.Single(p => p.PlayerId == "p2").UsedDoubleOrNothingThisRound);
+    }
+
+    [Fact]
+    public void InvalidQuestionRefundsDoubleOrNothing()
+    {
+        var room = CreateRoom();
+        room.TrySubmitGuess("p2", 100, true);
+        Assert.False(room.Players.Single(p => p.PlayerId == "p2").DoubleOrNothingAvailable);
+
+        room.ResetGuessesForRetry();
+
+        var player = room.Players.Single(p => p.PlayerId == "p2");
+        Assert.True(player.DoubleOrNothingAvailable);
+        Assert.False(player.UsedDoubleOrNothingThisRound);
+        Assert.Null(player.Guess);
     }
 }

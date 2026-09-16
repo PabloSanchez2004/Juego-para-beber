@@ -55,7 +55,12 @@ describe('RoomService', () => {
 
   it('submitGuess should invoke SubmitGuess on hub', async () => {
     await service.submitGuess(42.5);
-    expect(mockHub.invoke).toHaveBeenCalledWith('SubmitGuess', 42.5);
+    expect(mockHub.invoke).toHaveBeenCalledWith('SubmitGuess', 42.5, false);
+  });
+
+  it('sends the Doble o nada choice with the guess', async () => {
+    await service.submitGuess(42.5, true);
+    expect(mockHub.invoke).toHaveBeenCalledWith('SubmitGuess', 42.5, true);
   });
 
   it('submitQuestion should invoke SubmitQuestion on hub', async () => {
@@ -138,7 +143,7 @@ describe('RoomService', () => {
         RoundNumber: 1,
         Question: '¿Cuántos?',
         CorrectAnswer: 10,
-        Ranking: [{ PlayerId: 'p1', PlayerName: 'Ana', Guess: 10, Rank: 1 }],
+        Ranking: [{ PlayerId: 'p1', PlayerName: 'Ana', Guess: 10, Rank: 1, PointsEarned: 100 }],
         DrinksToDistribute: 1,
         DrinksDistributedByWinner: { p1: 1 },
         DrinkAssignments: [{ FromPlayerId: 'p1', ToPlayerId: 'p2', Amount: 1 }],
@@ -151,6 +156,8 @@ describe('RoomService', () => {
       amount: 1,
     });
     expect(service.currentState?.lastResult?.ranking[0].playerName).toBe('Ana');
+    expect(service.currentState?.lastResult?.ranking[0].pointsEarned).toBe(100);
+    expect(service.currentState?.lastResult?.ranking[0].basePoints).toBe(100);
   });
 
 });

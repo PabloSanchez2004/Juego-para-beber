@@ -360,7 +360,7 @@ public sealed class Room
     /// Registra la estimación de un jugador.
     /// Devuelve (ok, allSubmitted).
     /// </summary>
-    public (bool Ok, bool AllSubmitted) TrySubmitGuess(string playerId, double guess)
+    public (bool Ok, bool AllSubmitted) TrySubmitGuess(string playerId, double guess, bool useDoubleOrNothing = false)
     {
         lock (_lock)
         {
@@ -368,8 +368,14 @@ public sealed class Room
             if (!_players.TryGetValue(playerId, out var player) || !player.IsConnected) return (false, false);
             if (!IsEstimator(player)) return (false, false);
             if (player.Guess.HasValue) return (false, false); // ya envió
+            if (useDoubleOrNothing && !player.DoubleOrNothingAvailable) return (false, false);
 
             player.Guess = guess;
+            if (useDoubleOrNothing)
+            {
+                player.DoubleOrNothingAvailable = false;
+                player.UsedDoubleOrNothingThisRound = true;
+            }
             _lastActivity = DateTimeOffset.UtcNow;
 
             return (true, AllGuessesSubmitted());
@@ -429,14 +435,23 @@ public sealed class Room
                     rank = i + 1;
 
                 var p = ranked[i].Player;
+                var errorPercent = ranked[i].Error * 100;
+                var basePoints = ComputePoints(errorPercent);
+                var jokerWon = p.UsedDoubleOrNothingThisRound && errorPercent <= 10;
                 results.Add(new PlayerRoundResult
                 {
                     PlayerId = p.PlayerId,
                     PlayerName = p.Name,
                     Guess = p.Guess!.Value,
                     CorrectAnswer = correctAnswer,
-                    RelativeErrorPercent = ranked[i].Error * 100,
-                    Rank = rank
+                    RelativeErrorPercent = errorPercent,
+                    Rank = rank,
+                    BasePoints = basePoints,
+                    UsedDoubleOrNothing = p.UsedDoubleOrNothingThisRound,
+                    DoubleOrNothingWon = jokerWon,
+                    PointsEarned = p.UsedDoubleOrNothingThisRound
+                        ? jokerWon ? checked(basePoints * 2) : 0
+                        : basePoints
                 });
             }
 
@@ -488,11 +503,12 @@ public sealed class Room
                 results[i] = r with { DrinksThisRound = drinks, PenaltyDescription = penalty };
             }
 
-            // Cada victoria suma un punto; el reparto se registra aparte, al elegir destinatario.
-            foreach (var w in winners)
+            // Todos puntúan según su precisión. Un acierto exacto vale 100 puntos;
+            // desde el 100% de error no se obtienen puntos.
+            foreach (var result in results)
             {
-                var player = _players[w.PlayerId];
-                player.Score += 1;
+                var player = _players[result.PlayerId];
+                player.Score = checked(player.Score + result.PointsEarned);
             }
 
             if (redactorPenalty > 0 && _players.TryGetValue(_redactorPlayerId ?? string.Empty, out var author))
@@ -628,7 +644,7 @@ public sealed class Room
             if (_phase != GamePhase.CollectingGuesses) return;
 
             foreach (var p in _players.Values)
-                p.Guess = null;
+                p.ResetGuessForRetry();
 
             _currentQuestion = null;
             _pendingAnswer = null;
@@ -728,6 +744,17 @@ public sealed class Room
         }
 
         return Math.Min(Math.Abs(guess - correct) / Math.Abs(correct), 1e300);
+    }
+
+    /// <summary>
+    /// Convierte el porcentaje de error en puntos lineales: 0% = 100 puntos,
+    /// 25% = 75 puntos y 100% o más = 0 puntos.
+    /// </summary>
+    public static int ComputePoints(double relativeErrorPercent)
+    {
+        if (!double.IsFinite(relativeErrorPercent) || relativeErrorPercent >= 100) return 0;
+        if (relativeErrorPercent <= 0) return 100;
+        return Math.Clamp((int)Math.Round(100 - relativeErrorPercent, MidpointRounding.AwayFromZero), 0, 100);
     }
 }
 

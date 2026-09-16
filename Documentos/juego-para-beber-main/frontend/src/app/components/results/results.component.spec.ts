@@ -18,6 +18,7 @@ const mockResult: RoundResult = {
       correctAnswer: 12742,
       relativeErrorPercent: 0,
       rank: 1,
+      pointsEarned: 100,
       drinksThisRound: 0,
       penaltyDescription: '',
     },
@@ -28,6 +29,7 @@ const mockResult: RoundResult = {
       correctAnswer: 12742,
       relativeErrorPercent: 17.7,
       rank: 2,
+      pointsEarned: 82,
       drinksThisRound: 1,
       penaltyDescription: '🍺 Un trago.',
     },
@@ -138,7 +140,7 @@ describe('ResultsComponent', () => {
         ...mockResult,
         ranking: [
           { ...mockResult.ranking[0], rank: 1 },
-          { playerId: 'p4', playerName: 'Dani', guess: 13000, correctAnswer: 12742, relativeErrorPercent: 2, rank: 2, drinksThisRound: 0, penaltyDescription: '' },
+          { playerId: 'p4', playerName: 'Dani', guess: 13000, correctAnswer: 12742, relativeErrorPercent: 2, rank: 2, pointsEarned: 98, drinksThisRound: 0, penaltyDescription: '' },
           { ...mockResult.ranking[1], rank: 3 },
         ],
       },
@@ -193,6 +195,8 @@ describe('ResultsComponent', () => {
     expect(el.querySelector('.rank-card .badge-gold')?.textContent).toContain('¡Reparte');
     expect(el.querySelector('.rank-card .badge-red')?.textContent).toContain('¡Te toca beber!');
     expect(el.textContent).toContain(mockResult.sarcasticComment);
+    expect(el.textContent).toContain('+100 pts');
+    expect(el.textContent).toContain('+82 pts');
   });
 
   it('should resolve the redactor name', () => {

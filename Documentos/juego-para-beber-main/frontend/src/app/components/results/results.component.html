@@ -115,7 +115,7 @@
                   'bg-red-900/50 border-red-500': row.outcome === 'loser',
                   'bg-ink-900 border-white/5': row.outcome === 'neutral'
                 }"
-                [attr.aria-label]="row.entry.playerName + ', posición ' + row.entry.rank">
+                [attr.aria-label]="row.entry.playerName + ', posición ' + row.entry.rank + ', suma ' + row.entry.pointsEarned + ' puntos'">
 
                 @if (isMe(row.entry.playerId)) {
                   <span class="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-lime-400" aria-hidden="true"></span>
@@ -147,12 +147,23 @@
                   </div>
 
                   <div class="rank-error text-right shrink-0">
-                    <p class="eyebrow">Desvío</p>
-                    <p class="font-bold text-sm tabular-nums mt-0.5" [ngClass]="errorTone(row.entry.relativeErrorPercent)">
-                      {{ formatError(row.entry.relativeErrorPercent) }}
+                    <p class="points-earned tabular-nums">+{{ row.entry.pointsEarned }} pts</p>
+                    <p class="text-slate-500 text-xs tabular-nums mt-1">
+                      {{ formatError(row.entry.relativeErrorPercent) }} de error
                     </p>
                   </div>
                 </div>
+
+                @if (row.entry.usedDoubleOrNothing) {
+                  <div class="joker-result" [class.won]="row.entry.doubleOrNothingWon" [class.lost]="!row.entry.doubleOrNothingWon">
+                    <span class="joker-result-mark">×2</span>
+                    @if (row.entry.doubleOrNothingWon) {
+                      <span><strong>Doble o nada ganado</strong> · {{ row.entry.basePoints }} × 2 = {{ row.entry.pointsEarned }} pts</span>
+                    } @else {
+                      <span><strong>Doble o nada perdido</strong> · fuera del 10 % · 0 pts</span>
+                    }
+                  </div>
+                }
 
                 @if (row.outcome === 'winner') {
                   <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
@@ -184,7 +195,7 @@
             </p>
           } @else if (losers().length === 0 && ranking().length > 1) {
             <p class="text-slate-500 text-xs leading-relaxed mt-3 px-1">
-              Empate total: todos se acercaron lo mismo y suman un punto. No hay penalización por quedar último.
+              Empate total: todos se acercaron lo mismo y reciben la misma puntuación. No hay penalización por quedar último.
             </p>
           }
         </section>

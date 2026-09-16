@@ -31,12 +31,15 @@ export class GameComponent implements OnInit, OnDestroy {
   loading = signal(false);
   guessSent = signal(false);
   questionSent = signal(false);
+  doubleOrNothing = signal(false);
 
   // Formularios
   question = signal('');
   guessInput = signal('');
 
   myPlayerId = computed(() => this.roomService.localPlayer?.playerId ?? '');
+  myPlayer = computed(() => this.state()?.players.find(p => p.playerId === this.myPlayerId()));
+  doubleOrNothingAvailable = computed(() => this.myPlayer()?.doubleOrNothingAvailable ?? false);
 
   isRedactor = computed(() => {
     const s = this.state();
@@ -129,6 +132,7 @@ export class GameComponent implements OnInit, OnDestroy {
           this.questionSent.set(false);
           this.guessSent.set(false);
           this.guessInput.set('');
+          this.doubleOrNothing.set(false);
           this.loading.set(false);
           this.errorMsg.set('');
         }
@@ -140,6 +144,7 @@ export class GameComponent implements OnInit, OnDestroy {
           if (me?.guess != null) {
             this.guessSent.set(true);
             this.guessInput.set(formatEsNumber(me.guess));
+            this.doubleOrNothing.set(me.usedDoubleOrNothingThisRound ?? false);
             this.loading.set(false);
           }
         }
@@ -193,7 +198,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.errorMsg.set('');
 
     try {
-      await this.roomService.submitGuess(val);
+      await this.roomService.submitGuess(val, this.doubleOrNothing());
       // guessSent se activa en GuessAcknowledged
     } catch {
       this.errorMsg.set('Error al enviar tu estimación.');
@@ -218,6 +223,11 @@ export class GameComponent implements OnInit, OnDestroy {
   toggleGuessSign(): void {
     const value = this.guessInput();
     this.guessInput.set(value.startsWith('-') ? value.slice(1) : '-' + value);
+  }
+
+  toggleDoubleOrNothing(): void {
+    if (!this.doubleOrNothingAvailable() || this.guessSent() || this.loading()) return;
+    this.doubleOrNothing.update(active => !active);
   }
 
   onGuessInput(event: Event): void {

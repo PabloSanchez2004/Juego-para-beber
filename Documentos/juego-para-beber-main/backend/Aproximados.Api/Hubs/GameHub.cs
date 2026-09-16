@@ -413,7 +413,7 @@ public sealed class GameHub : Hub
 
     // ── Enviar estimación ──────────────────────────────────────────────────
 
-    public async Task SubmitGuess(double guess)
+    public async Task SubmitGuess(double guess, bool useDoubleOrNothing = false)
     {
         var (room, player) = await GetRoomAndPlayerOrError();
         if (room is null || player is null) return;
@@ -424,11 +424,11 @@ public sealed class GameHub : Hub
             return;
         }
 
-        var (ok, allSubmitted) = room.TrySubmitGuess(player.PlayerId, guess);
+        var (ok, allSubmitted) = room.TrySubmitGuess(player.PlayerId, guess, useDoubleOrNothing);
 
         if (!ok)
         {
-            await SendError("No puedes enviar esa estimación: comprueba el modo, la fase y que no hayas respondido ya (máximo ±1.000 billones).");
+            await SendError("No puedes enviar esa estimación: comprueba el modo, la fase, el comodín y que no hayas respondido ya (máximo ±1.000 billones).");
             return;
         }
 

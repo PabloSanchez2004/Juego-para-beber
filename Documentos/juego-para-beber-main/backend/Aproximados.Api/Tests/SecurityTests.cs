@@ -32,7 +32,7 @@ public class SecurityTests
         room.TrySubmitGuess(player.PlayerId, 1e15);
         var result = room.FinalizeRound(1e-300, "test", "");
         Assert.NotNull(result);
-        Assert.Equal(1, player.Score);
+        Assert.Equal(0, player.Score);
         Assert.True(double.IsFinite(result.Ranking[0].RelativeErrorPercent));
         Assert.NotEmpty(JsonSerializer.Serialize(result));
     }

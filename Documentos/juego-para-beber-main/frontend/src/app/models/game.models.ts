@@ -24,6 +24,10 @@ export interface PlayerPublicDto {
   guess: number | null;
   /** Anfitrión: el único que puede empezar la partida y expulsar. */
   isAdmin: boolean;
+  /** Solo se revela al propio jugador. */
+  doubleOrNothingAvailable?: boolean;
+  /** Se mantiene secreto para los demás hasta el resultado. */
+  usedDoubleOrNothingThisRound?: boolean;
 }
 
 export interface PlayerRoundResult {
@@ -33,6 +37,10 @@ export interface PlayerRoundResult {
   correctAnswer: number;
   relativeErrorPercent: number;
   rank: number;
+  pointsEarned: number;
+  basePoints?: number;
+  usedDoubleOrNothing?: boolean;
+  doubleOrNothingWon?: boolean;
   drinksThisRound: number;
   penaltyDescription: string;
 }

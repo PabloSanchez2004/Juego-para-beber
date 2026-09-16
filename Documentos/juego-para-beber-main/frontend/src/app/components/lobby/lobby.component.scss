@@ -15,6 +15,11 @@
 .game-mode-option.selected strong, .game-mode-option.selected small { color: #e3f5a7; }
 .mode-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #303b25; color: #bacaa3; font-size: 10px; font-weight: 750; }
 .selected .mode-icon { color: #243310; background: #d8f36a; }
+.joker-intro { position: relative; display: flex; align-items: center; gap: 11px; margin-top: 16px; padding: 12px; border: 1px solid #665b37; border-radius: 13px; background: #262319; color: #eee5c9; }
+.joker-intro-mark { flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #9b8342; border-radius: 10px; color: #f2d477; font-weight: 900; }
+.joker-intro strong { display: block; font-size: 13px; }
+.joker-intro p { margin-top: 2px; padding-right: 42px; color: #bcb39b; font-size: 11px; line-height: 1.4; }
+.joker-intro-tag { position: absolute; right: 10px; top: 10px; color: #e7c65f; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
 .player-chip > div:first-child { border-radius: 12px; }
 .lobby-actions { background: linear-gradient(0deg,#151914 80%,#15191400); padding-inline: 24px; }
 .lobby-actions .btn-primary { display: flex; align-items: center; justify-content: space-between; }

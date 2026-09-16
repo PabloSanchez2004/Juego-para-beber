@@ -91,11 +91,11 @@ async function checkLayout(page, label) {
     await page.locator('#guess-input').fill('1000000000000000');
     await checkLayout(page,'estimacion');
     await page.getByRole('button',{name:'Cambiar entre número positivo y negativo'}).click();
-    assert.ok((await page.locator('#guess-input').inputValue()).startsWith('-'));
+    await page.waitForFunction(() => document.querySelector('#guess-input').value.startsWith('-'));
     await page.evaluate(s=>window.__qaService._gameState$.next({...s,guessesSubmitted:12,players:s.players.map(p=>({...p,guess:p.playerId==='p1'?206:null}))}),collecting);
     await page.getByRole('heading',{name:'Estimación enviada'}).waitFor();
     await checkLayout(page,'enviada');
-    const result={roundNumber:3,question:collecting.currentQuestion,correctAnswer:206,answerSource:'https://example.com/anatomia',ranking:players.map((p,i)=>({playerId:p.playerId,playerName:p.name,guess:i===1?1e15:206+i*30,correctAnswer:206,relativeErrorPercent:i===1?4.8e14:i*14.5,rank:i+1,drinksThisRound:i===11?2:0,penaltyDescription:''})),sarcasticComment:'Tu cifra necesita un telescopio para ver la respuesta.',winnerName:'Lucía',loserName:'Colega 12',drinksToDistribute:1,loserPenalty:2,redactorPenalty:1,redactorPenaltyDescription:'Todos se acercaron: un trago para el redactor.',drinksDistributedByWinner:{},drinkAssignments:[]};
+    const result={roundNumber:3,question:collecting.currentQuestion,correctAnswer:206,answerSource:'https://example.com/anatomia',ranking:players.map((p,i)=>({playerId:p.playerId,playerName:p.name,guess:i===1?1e15:206+i*30,correctAnswer:206,relativeErrorPercent:i===1?4.8e14:i*14.5,rank:i+1,pointsEarned:i===1?0:Math.max(0,Math.round(100-i*14.5)),drinksThisRound:i===11?2:0,penaltyDescription:''})),sarcasticComment:'Tu cifra necesita un telescopio para ver la respuesta.',winnerName:'Lucía',loserName:'Colega 12',drinksToDistribute:1,loserPenalty:2,redactorPenalty:1,redactorPenaltyDescription:'Todos se acercaron: un trago para el redactor.',drinksDistributedByWinner:{},drinkAssignments:[]};
     const results={...collecting,phase:'ShowingResults',roundNumber:3,lastResult:result};
     await page.evaluate(s=>{
       const service=window.__qaService;

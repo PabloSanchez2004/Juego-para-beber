@@ -207,9 +207,9 @@ export class RoomService implements OnDestroy {
     await this._hub!.invoke('SubmitQuestion', question);
   }
 
-  async submitGuess(guess: number): Promise<void> {
+  async submitGuess(guess: number, useDoubleOrNothing = false): Promise<void> {
     await this.ensureConnected();
-    await this._hub!.invoke('SubmitGuess', guess);
+    await this._hub!.invoke('SubmitGuess', guess, useDoubleOrNothing);
   }
 
   async requestResults(): Promise<void> {
@@ -531,6 +531,8 @@ function normalizeGameState(raw: unknown): GameStateDto | null {
       alcoholFree: Boolean(p['alcoholFree'] ?? p['AlcoholFree'] ?? false),
       guess: (p['guess'] ?? p['Guess'] ?? null) as number | null,
       isAdmin: Boolean(p['isAdmin'] ?? p['IsAdmin'] ?? false),
+      doubleOrNothingAvailable: Boolean(p['doubleOrNothingAvailable'] ?? p['DoubleOrNothingAvailable'] ?? false),
+      usedDoubleOrNothingThisRound: Boolean(p['usedDoubleOrNothingThisRound'] ?? p['UsedDoubleOrNothingThisRound'] ?? false),
     })),
     lastResult: normalizeLastResult(src['lastResult'] ?? src['LastResult']),
     maxRounds: Number(src['maxRounds'] ?? src['MaxRounds'] ?? 10),
@@ -573,6 +575,10 @@ function normalizeLastResult(raw: unknown): GameStateDto['lastResult'] {
         correctAnswer: Number(pick(r, 'correctAnswer', 'CorrectAnswer') ?? 0),
         relativeErrorPercent: Number(pick(r, 'relativeErrorPercent', 'RelativeErrorPercent') ?? 0),
         rank: Number(pick(r, 'rank', 'Rank') ?? 0),
+        pointsEarned: Number(pick(r, 'pointsEarned', 'PointsEarned') ?? 0),
+        basePoints: Number(pick(r, 'basePoints', 'BasePoints') ?? pick(r, 'pointsEarned', 'PointsEarned') ?? 0),
+        usedDoubleOrNothing: Boolean(pick(r, 'usedDoubleOrNothing', 'UsedDoubleOrNothing') ?? false),
+        doubleOrNothingWon: Boolean(pick(r, 'doubleOrNothingWon', 'DoubleOrNothingWon') ?? false),
         drinksThisRound: Number(pick(r, 'drinksThisRound', 'DrinksThisRound') ?? 0),
         penaltyDescription: String(pick(r, 'penaltyDescription', 'PenaltyDescription') ?? ''),
       };
