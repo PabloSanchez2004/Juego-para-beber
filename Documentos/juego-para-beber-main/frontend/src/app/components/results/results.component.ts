@@ -5,10 +5,12 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FinalRevealComponent } from '../final-reveal/final-reveal.component';
 import { Subscription } from 'rxjs';
+import { formatEsNumber } from '../../utils/number-format';
+import { sourceUrl } from '../../utils/source-url';
 import { RoomService } from '../../services/room.service';
 import {
   GameStateDto,
@@ -42,7 +44,7 @@ export interface PodiumRow {
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, FinalRevealComponent],
+  imports: [CommonModule, FinalRevealComponent],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
 })
@@ -307,10 +309,13 @@ export class ResultsComponent implements OnInit, OnDestroy {
     return '¡Te toca beber!';
   }
 
+  formatNumber = formatEsNumber;
+  sourceUrl = sourceUrl;
+
   formatError(pct: number): string {
     if (!Number.isFinite(pct)) return 'Fuera de escala';
     if (pct === 0) return 'Exacto';
-    return `${pct.toFixed(1)}%`;
+    return `${new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(pct)} %`;
   }
 
   /** Color del porcentaje de error según lo lejos que se quedó. */

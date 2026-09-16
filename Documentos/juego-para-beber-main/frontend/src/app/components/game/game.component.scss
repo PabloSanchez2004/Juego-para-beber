@@ -39,3 +39,19 @@ label { font-size: 11px !important; letter-spacing: .12em; }
   .game-page { padding-inline: 16px; }
   #guess-input { padding-inline: 10px; }
 }
+
+.game-page { padding-top: max(24px, env(safe-area-inset-top)); }
+.mode-note { align-self: flex-start; max-width: 100%; line-height: 1.5; }
+.mode-note::before { flex-shrink: 0; }
+.question-examples summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: #d8f36a; font-size: 13px; }
+.question-examples summary::after { content: '+'; margin-left: auto; }
+.question-examples[open] summary::after { content: '−'; }
+.question-examples p { color: #adb6a6; font-size: 13px; line-height: 1.6; padding-bottom: 8px; }
+.sign-toggle { align-self: center; padding: 8px 14px; font-size: 13px; color: #c4d0b5; }
+@media(max-width:600px) {
+  .game-page { padding-inline: 16px; }
+  textarea.input-field { min-height: 160px; font-size: 16px; padding: 16px; }
+  .btn-primary { min-height: 56px; font-size: 16px; padding-block: 16px; }
+  #guess-input { min-height: 116px; padding-block: 22px; }
+  #guess-preview > span { font-size: 18px; line-height: 1.4; }
+}

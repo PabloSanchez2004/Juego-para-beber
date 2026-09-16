@@ -87,7 +87,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   guessValid = computed(() => {
     const val = this.resolvedGuess();
-    return val !== null;
+    return val !== null && Math.abs(val) <= 1e15;
   });
 
   guessPreview = computed(() => {
@@ -215,9 +215,21 @@ export class GameComponent implements OnInit, OnDestroy {
     }
   }
 
+  toggleGuessSign(): void {
+    const value = this.guessInput();
+    this.guessInput.set(value.startsWith('-') ? value.slice(1) : '-' + value);
+  }
+
   onGuessInput(event: Event): void {
     const el = event.target as HTMLInputElement;
-    const formatted = formatGuessTyping(el.value);
+    let raw = el.value;
+    // Some mobile decimal keyboards emit a dot even for a Spanish page.
+    // Only reinterpret a newly typed dot; existing grouping dots stay intact.
+    if (event instanceof InputEvent && event.data === '.' && event.inputType === 'insertText') {
+      const cursor = el.selectionStart ?? raw.length;
+      raw = raw.slice(0, cursor - 1) + ',' + raw.slice(cursor);
+    }
+    const formatted = formatGuessTyping(raw);
     this.guessInput.set(formatted);
     el.value = formatted;
   }

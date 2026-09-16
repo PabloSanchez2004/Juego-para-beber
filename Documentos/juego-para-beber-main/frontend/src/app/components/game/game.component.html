@@ -29,10 +29,10 @@
                 Pregunta cuya respuesta sea un número exacto. La IA buscará el dato.
               }
             </p>
-            <p class="text-gray-500 text-xs mt-3">
-              Ejemplos: «¿Cuántos satélites naturales tiene Marte?»,
-              «¿En qué año se fundó la ONU?», «¿Cuántos huesos tiene el cuerpo humano?»
-            </p>
+            <details class="question-examples mt-2">
+              <summary>¿Necesitas una idea?</summary>
+              <p>¿Cuántos satélites naturales tiene Marte? ¿En qué año se fundó la ONU? ¿Cuántos huesos tiene un adulto?</p>
+            </details>
           </div>
 
           <div class="flex-1">
@@ -105,6 +105,9 @@
         </div>
       </div>
 
+      @if (errorMsg()) {
+        <div class="alert-error mb-4" role="alert">{{ errorMsg() }}</div>
+      }
       @if (canGuess()) {
         <div class="flex-1 flex flex-col animate-slide-up">
           @if (!guessSent()) {
@@ -126,20 +129,22 @@
                 maxlength="24"
                 (keydown.enter)="submitGuess()"
                 aria-label="Escribe tu estimación numérica"
-                aria-describedby="guess-preview">
+                aria-describedby="guess-preview"
+                enterkeyhint="send" spellcheck="false"
+                [style.font-size.px]="guessInput().length > 12 ? 24 : guessInput().length > 8 ? 32 : null">
 
+              <button type="button" class="sign-toggle" (click)="toggleGuessSign()" [disabled]="loading()"
+                aria-label="Cambiar entre número positivo y negativo">± Cambiar signo</button>
               <p id="guess-preview" class="text-center mt-4 min-h-[2.5rem] px-1">
-                @if (guessPreview()) {
+                @if (guessInput() && !guessValid()) {
+                  <span class="text-red-300 text-sm">Introduce un número entre −10¹⁵ y 10¹⁵.</span>
+                } @else if (guessPreview()) {
                   <span class="text-lime-400 text-2xl font-black leading-tight block">{{ guessPreview() }}</span>
                 } @else {
                   <span class="text-slate-500 text-sm">Usa coma para decimales. 7000000 se lee como 7 millones.</span>
                 }
               </p>
             </div>
-
-            @if (errorMsg()) {
-              <div class="alert-error my-4 animate-shake" role="alert">{{ errorMsg() }}</div>
-            }
 
             <button
               class="btn-primary mt-4 py-6 text-2xl font-black active:scale-95"
@@ -157,13 +162,14 @@
               }
             </button>
           } @else {
-            <div class="wait-panel">
+            <div class="wait-panel" role="status">
+              <h2>Estimación enviada</h2>
               <p class="eyebrow">Tu número está guardado</p>
               <p class="guess-sent">{{ formattedResolvedGuess() }}</p>
               @if (guessPreview() && guessPreview() !== formattedResolvedGuess()) {
                 <p class="text-lime-400 text-sm font-black">{{ guessPreview() }}</p>
               }
-              <p>Esperando al resto. Las cifras ajenas siguen en secreto.</p>
+              <p>{{ s.guessesSubmitted >= guessesExpected() ? 'La IA está comprobando el dato. Enseguida llega el veredicto.' : 'Esperando al resto. Las cifras ajenas siguen en secreto.' }}</p>
             </div>
           }
         </div>
@@ -177,9 +183,6 @@
 
       @if (canCloseRound()) {
         <div class="mt-6">
-          @if (errorMsg() && !canGuess()) {
-            <div class="alert-error mb-4" role="alert">{{ errorMsg() }}</div>
-          }
           <p class="text-gray-500 text-xs text-center mb-3">
             La ronda se cierra cuando todos responden. También puedes cerrarla con las respuestas recibidas.
           </p>

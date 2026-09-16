@@ -58,3 +58,15 @@ El frontend de producción utiliza la API configurada en `frontend/src/environme
 Docker usa el frontend con proxy `/gamehub` hacia el backend. Configura `GEMINI_API_KEY` y el origen del frontend antes de `docker compose up --build`.
 
 Las salas viven en memoria: reiniciar el backend elimina las partidas. La sesión privada permite recuperar el asiento durante desconexiones breves; no compartas ese token. Las salas inactivas se limpian automáticamente.
+
+## Comprobación visual móvil
+
+Después de `npm run build:prod`, con el servidor de desarrollo abierto:
+
+```bash
+PLAYWRIGHT_PATH=/ruta/a/playwright node scripts/mobile-ui-check.cjs
+```
+
+La prueba sirve el build de producción con la política CSP de Vercel, verifica que sus estilos se aplican y revisa pantallas de 320, 360, 390, 430, 768 y 1440 píxeles. Las pantallas de resultados usan datos controlados de prueba (12 jugadores y números grandes); no consumen Gemini. Las capturas se guardan en `docs/mobile-*.png`.
+
+La optimización de estilos mantiene `inlineCritical: false`: evita el manejador `onload` inline que la CSP bloqueaba y que dejaba la hoja global en modo impresión. No es necesario relajar la política de seguridad.

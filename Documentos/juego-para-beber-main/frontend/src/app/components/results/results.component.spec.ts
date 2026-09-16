@@ -190,8 +190,8 @@ describe('ResultsComponent', () => {
 
   it('should render winner and loser badges in the template', () => {
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector('.badge-gold')?.textContent).toContain('¡Reparte');
-    expect(el.querySelector('.badge-red')?.textContent).toContain('¡Te toca beber!');
+    expect(el.querySelector('.rank-card .badge-gold')?.textContent).toContain('¡Reparte');
+    expect(el.querySelector('.rank-card .badge-red')?.textContent).toContain('¡Te toca beber!');
     expect(el.textContent).toContain(mockResult.sarcasticComment);
   });
 
@@ -223,11 +223,11 @@ describe('ResultsComponent', () => {
   });
 
   it('formatError should handle small error', () => {
-    expect(component.formatError(3)).toContain('3.0%');
+    expect(component.formatError(3)).toContain('3,0 %');
   });
 
   it('formatError should handle large error', () => {
-    expect(component.formatError(75)).toContain('75.0%');
+    expect(component.formatError(75)).toContain('75,0 %');
   });
 
   it('should call nextRound on service', async () => {

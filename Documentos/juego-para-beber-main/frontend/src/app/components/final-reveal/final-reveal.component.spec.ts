@@ -66,7 +66,7 @@ describe('FinalRevealComponent', () => {
     expect(component.revealedCount()).toBe(0);
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector('.answer-number')?.textContent).toContain('12,742');
+    expect(el.querySelector('.answer-number')?.textContent).toContain('12.742');
     expect(el.querySelectorAll('.podium-row').length).toBe(0);
   });
 

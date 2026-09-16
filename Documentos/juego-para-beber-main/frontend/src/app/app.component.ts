@@ -13,7 +13,7 @@ import { GamePhase } from './models/game.models';
   standalone: true,
   imports: [RouterOutlet, CommonModule],
   template: `
-    <div class="app-shell min-h-screen safe-top safe-bottom">
+    <div class="app-shell min-h-screen">
       @if (isReconnecting) {
         <div class="status-banner is-warn" role="status">Reconectando. No cierres la app.</div>
       }

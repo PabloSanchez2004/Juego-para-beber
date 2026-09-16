@@ -18,6 +18,7 @@
 html, body {
   min-width: 320px;
   min-height: 100%;
+  scroll-padding-block: 24px;
   margin: 0;
   overflow-x: clip;
   background: var(--color-bg);
@@ -208,3 +209,21 @@ app-results .tabular-nums { overflow-wrap: anywhere; }
   .hero-actions { flex-direction: column; }
   .hero-actions .btn-primary, .hero-actions .btn-secondary { width: 100%; }
 }
+
+/* Mobile layout: each screen owns its safe area; no doubled app padding. */
+.app-shell { min-height: 100svh; }
+.wordmark { color: var(--color-text); text-decoration: none; }
+input, textarea { scroll-margin-block: 24px; }
+input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--color-primary); cursor: pointer; }
+.status-banner { position: sticky; padding-top: max(12px, env(safe-area-inset-top)); }
+.status-banner button { display: inline; margin-left: 10px; text-decoration: underline; }
+.wait-panel .guess-sent { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(32px, 10vw, 56px); line-height: 1.2; }
+@media (max-width: 600px) {
+  .card, .card-elevated { padding: 18px; }
+  .entry-shell { margin: 24px auto 0; gap: 14px; }
+  .entry-shell > div { padding: 22px; }
+  .entry-shell h2 { font-size: 28px; }
+  .entry-description { font-size: 14px; }
+}
+
+.source-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }

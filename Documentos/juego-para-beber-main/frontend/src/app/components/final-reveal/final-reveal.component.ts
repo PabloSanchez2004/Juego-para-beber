@@ -8,7 +8,9 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
+import { formatEsNumber } from '../../utils/number-format';
+import { sourceUrl } from '../../utils/source-url';
 import type { PodiumRow } from '../results/results.component';
 
 /**
@@ -31,7 +33,7 @@ export const SETTLE_MS = 1200;
 @Component({
   selector: 'app-final-reveal',
   standalone: true,
-  imports: [CommonModule, DecimalPipe],
+  imports: [CommonModule],
   templateUrl: './final-reveal.component.html',
   styleUrls: ['./final-reveal.component.scss'],
 })
@@ -58,6 +60,9 @@ export class FinalRevealComponent implements OnInit, OnDestroy {
 
   /** Se emite cuando el jugador cierra la ceremonia. */
   @Output() finish = new EventEmitter<void>();
+
+  formatNumber = formatEsNumber;
+  sourceUrl = sourceUrl;
 
   worstFirst = signal<PodiumRow[]>([]);
 

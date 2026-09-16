@@ -253,4 +253,39 @@ describe('GameComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
+  it('rejects estimates outside the supported server range', () => {
+    component.guessInput.set('1.000.000.000.000.001');
+    expect(component.guessValid()).toBeFalse();
+    component.guessInput.set('-1.000.000.000.000.000');
+    expect(component.guessValid()).toBeTrue();
+  });
+
+  it('changes the sign without changing the numerical magnitude', () => {
+    component.guessInput.set('1.234,5');
+    component.toggleGuessSign();
+    expect(component.resolvedGuess()).toBe(-1234.5);
+    component.toggleGuessSign();
+    expect(component.resolvedGuess()).toBe(1234.5);
+  });
+
+  it('keeps server errors visible after the estimate has been submitted', () => {
+    gameState$.next({ ...mockState, phase: 'CollectingGuesses' });
+    guessAcknowledged$.next();
+    error$.next('No se pudo cerrar la ronda');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('No se pudo cerrar');
+  });
+
+  it('accepts a mobile decimal dot without removing the existing grouping dots', () => {
+    const input = document.createElement('input');
+    input.value = '1.234.';
+    input.setSelectionRange(6, 6);
+    input.addEventListener('input', e => component.onGuessInput(e));
+    input.dispatchEvent(new InputEvent('input', { data: '.', inputType: 'insertText' }));
+    expect(component.guessInput()).toBe('1.234,');
+    input.value = '1.234,5';
+    input.dispatchEvent(new InputEvent('input', { data: '5', inputType: 'insertText' }));
+    expect(component.resolvedGuess()).toBe(1234.5);
+  });
+
 });

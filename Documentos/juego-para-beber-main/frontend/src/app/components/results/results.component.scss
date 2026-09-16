@@ -28,3 +28,21 @@ article .text-red-300\/80 { color: #f3bfa5; }
   article .text-base { font-size: 14px; }
   article .text-sm { font-size: 12px; }
 }
+
+.results-page { padding-top: max(24px, env(safe-area-inset-top)); }
+.rank-error { max-width: 34%; overflow-wrap: anywhere; }
+.rank-card .tabular-nums { overflow-wrap: anywhere; }
+.drink-allocation li { overflow-wrap: anywhere; }
+@media(max-width:600px) {
+  .results-page { padding-inline: 16px; }
+  .rank-card .flex { column-gap: 10px; }
+  .card-elevated .text-right { max-width: 100%; overflow-wrap: anywhere; }
+}
+
+.recipient-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.recipient-option { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 12px; min-width: 0 !important; width: 100% !important; border: 1px solid #52663c; border-radius: 12px; background: #1c2616; }
+.recipient-option span { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.recipient-option small { color: #d8f36a; font-size: 12px; margin-top: 4px; }
+.recipient-option:hover:not(:disabled) { border-color: #d8f36a; }
+.scoreboard-details summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.scoreboard-details[open] summary > span:last-child { transform: rotate(45deg); }

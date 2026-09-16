@@ -22,3 +22,38 @@
 @media(max-width:420px) {
   .game-mode-grid { grid-template-columns: 1fr; }
 }
+
+.lobby-page { padding-top: max(16px, env(safe-area-inset-top)); }
+.lobby-actions { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.game-mode-option:focus-visible { outline-offset: 3px; }
+@media(max-width:600px) {
+  .lobby-page { padding-inline: 16px; }
+  .lobby-page > div:first-child { margin-bottom: 22px; padding-bottom: 10px; }
+  .lobby-page > .text-center { margin-bottom: 24px; }
+  .game-mode-grid { grid-template-columns: 1fr; }
+  .game-mode-option { display: grid; grid-template-columns: 32px 1fr; gap: 4px 12px; padding: 14px; }
+  .game-mode-option .mode-icon { grid-row: 1 / 4; width: 32px; height: 32px; align-self: center; }
+  .game-mode-option > span:not(.mode-icon), .game-mode-option small { grid-column: 2; }
+  .game-mode-option small { font-size: 11px; padding-top: 2px; }
+  .game-mode-option > span:not(.mode-icon) { font-size: 13px; line-height: 1.4; }
+  .lobby-actions { padding-inline: 16px; }
+  .player-chip { gap: 10px; padding: 12px; }
+}
+
+.invite-button { display: block; margin: 4px auto 0; padding: 10px 16px; color: #d8f36a; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+@media(max-width:600px) {
+  .lobby-page > div:first-child { margin-bottom: 16px; }
+  .invite-panel { margin-bottom: 16px !important; }
+  .invite-panel > p:first-child { margin-bottom: 8px; font-size: 11px; }
+  .invite-panel > p { font-size: 12px; }
+  .room-code { padding: 12px 18px 12px 28px; font-size: 40px; }
+  .game-mode-option { padding: 12px; }
+  .lobby-page > section > .mb-5 { margin-bottom: 14px; }
+  .lobby-page > section > p { margin-top: 12px; }
+}
+@media(max-width:600px) {
+  .game-mode-option small { display: none; }
+  .game-mode-option .mode-icon { grid-row: 1 / 3; }
+  .game-mode-option strong { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .game-mode-option.selected strong::after { content: '✓'; color: #d8f36a; }
+}

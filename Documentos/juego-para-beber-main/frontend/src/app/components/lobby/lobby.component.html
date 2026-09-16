@@ -17,7 +17,7 @@
     </div>
 
     <!-- Código de sala -->
-    <div class="text-center mb-8">
+    <div class="invite-panel text-center mb-6">
       <p class="text-gray-500 text-sm font-semibold uppercase tracking-widest mb-3">
         Código de sala
       </p>
@@ -35,7 +35,7 @@
 
       <!-- Enlace directo: quien lo abre entra con el código ya puesto -->
       <button
-        class="btn-secondary mt-4"
+        class="invite-button"
         (click)="copyInviteLink()"
         aria-label="Copiar enlace de invitación a la sala">
         {{ linkCopied() ? 'Enlace copiado' : 'Copiar enlace de invitación' }}
@@ -76,7 +76,7 @@
     <!-- Lista de jugadores -->
     <div class="mb-8">
       <h2 class="text-gray-400 text-sm font-semibold uppercase tracking-wide mb-3">
-        Vuestro equipo · {{ connectedCount() }} conectados
+        Vuestro equipo · {{ connectedCount() }} {{ connectedCount() === 1 ? 'conectado' : 'conectados' }}
       </h2>
 
       <div class="space-y-3">

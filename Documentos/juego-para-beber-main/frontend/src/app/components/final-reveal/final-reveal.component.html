@@ -14,11 +14,13 @@
 
       <div class="mt-10 reveal-item" style="animation-delay: 0.6s">
         <p class="eyebrow mb-3">La respuesta era</p>
-        <p class="answer-number">{{ correctAnswer | number:'1.0-4' }}</p>
+        <p class="answer-number">{{ formatNumber(correctAnswer) }}</p>
         @if (answerSource) {
-          <p class="text-slate-500 text-xs mt-4 break-words max-w-xs mx-auto">
-            Fuente: {{ answerSource }}
-          </p>
+          @if (sourceUrl(answerSource); as url) {
+            <a class="source-link" [href]="url" target="_blank" rel="noopener noreferrer">Consultar fuente ↗</a>
+          } @else {
+            <p class="text-slate-500 text-xs mt-4 break-words max-w-xs mx-auto">Fuente: {{ answerSource }}</p>
+          }
         }
       </div>
 
