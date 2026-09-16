@@ -27,10 +27,10 @@
             <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
             <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
           </div>
-          <span class="badge-neutral">{{ s.roomCode }}</span>
+          <span hlmBadge variant="neutral" class="badge-neutral font-bold">{{ s.roomCode }}</span>
         </header>
 
-        <section class="card-elevated mb-6 animate-slide-up">
+        <section hlmCard variant="elevated" class="card-elevated mb-6 animate-slide-up">
           <p class="eyebrow mb-2">La pregunta</p>
           <p class="text-slate-100 font-semibold text-lg leading-snug">{{ r.question }}</p>
 
@@ -57,11 +57,11 @@
           </div>
         </section>
 
-        <section class="drink-allocation card mb-6" aria-label="Reparto de tragos">
+        <section hlmCard class="drink-allocation card mb-6" aria-label="Reparto de tragos">
           <div class="flex items-center justify-between gap-3 mb-3">
             <h3 class="eyebrow">El ganador reparte</h3>
             @if (myDrinksRemaining() > 0) {
-              <span class="badge-gold">{{ myDrinksRemaining() }} pendiente{{ myDrinksRemaining() === 1 ? '' : 's' }}</span>
+              <span hlmBadge variant="gold" class="badge-gold">{{ myDrinksRemaining() }} pendiente{{ myDrinksRemaining() === 1 ? '' : 's' }}</span>
             }
           </div>
           @if (myDrinksRemaining() > 0) {
@@ -167,7 +167,7 @@
 
                 @if (row.outcome === 'winner') {
                   <div class="mt-4 pt-3 border-t border-gold-400/20 flex items-center justify-between gap-3">
-                    <span class="badge-gold text-sm px-3.5 py-1.5">{{ winnerBadge() }}</span>
+                    <span hlmBadge variant="gold" class="badge-gold text-sm px-3.5 py-1.5">{{ winnerBadge() }}</span>
                     <span class="text-gold-300/80 text-xs font-medium text-right">
                       @if (isNextRedactor(row.entry.playerId)) {
                         Redacta la siguiente
@@ -180,7 +180,7 @@
                   </div>
                 } @else if (row.outcome === 'loser') {
                   <div class="mt-4 pt-3 border-t border-red-500/20 flex items-center justify-between gap-3">
-                    <span class="badge-red text-sm px-3.5 py-1.5 font-black">{{ loserBadge() }}</span>
+                    <span hlmBadge variant="destructive" class="badge-red text-sm px-3.5 py-1.5 font-black">{{ loserBadge() }}</span>
                     <span class="text-red-300/80 text-xs font-medium text-right">El que más se alejó</span>
                   </div>
                 }
@@ -202,13 +202,13 @@
 
         <section class="round-consequences space-y-3 mb-6" aria-label="Veredicto de la ronda">
           @if (r.sarcasticComment) {
-            <div class="card">
+            <div hlmCard class="card">
               <p class="eyebrow mb-2">El veredicto de la IA</p>
               <p class="text-slate-200 text-base leading-relaxed">“{{ r.sarcasticComment }}”</p>
             </div>
           }
           @if (r.redactorPenalty > 0) {
-            <div class="card">
+            <div hlmCard class="card">
               <p class="eyebrow mb-2">Demasiado fácil, {{ redactorName() }}</p>
               <p class="text-slate-200 text-sm">{{ r.redactorPenaltyDescription }}</p>
               <p class="text-slate-400 text-xs mt-2">{{ r.redactorPenalty }} {{ r.redactorPenalty === 1 ? 'trago para el redactor' : 'tragos para el redactor' }}.</p>
@@ -223,7 +223,7 @@
 
 
 
-        <details class="scoreboard-details card mb-6">
+        <details hlmCard class="scoreboard-details card mb-6">
           <summary><span>Marcador acumulado</span><span aria-hidden="true">+</span></summary>
           <ul class="divide-y divide-white/5 mt-4">
             @for (player of scoreboard(); track player.playerId) {
@@ -258,7 +258,7 @@
         </details>
 
         @if (errorMsg()) {
-          <div class="alert-error mb-4 animate-shake" role="alert">{{ errorMsg() }}</div>
+          <div hlmAlert variant="destructive" class="alert-error mb-4 animate-shake" role="alert">{{ errorMsg() }}</div>
         }
 
         <div class="mt-auto">
@@ -274,6 +274,8 @@
             </p>
           }
           <button
+            hlmBtn
+            variant="party"
             class="btn-primary"
             [disabled]="loading() || !canAdvance()"
             (click)="nextRound()"
@@ -289,7 +291,7 @@
             }
           </button>
           } @else {
-            <button class="btn-primary" [disabled]="pendingDistributors().length > 0 || loading()" (click)="openFinal()">
+            <button hlmBtn variant="party" class="btn-primary" [disabled]="pendingDistributors().length > 0 || loading()" (click)="openFinal()">
               {{ pendingDistributors().length > 0 ? 'Esperando el reparto de tragos' : 'Ver clasificación final →' }}
             </button>
           }

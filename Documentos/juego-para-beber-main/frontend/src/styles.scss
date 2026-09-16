@@ -2,21 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-  --color-primary: #ff2a5f;
-  --color-primary-hover: #ff4777;
-  --color-primary-text: #ffffff;
-  --color-accent-mint: #00f5a0;
-  --color-accent-gold: #ffd166;
-  --color-accent-violet: #a855f7;
-  --color-bg: #0b0d17;
-  --color-surface: #121626;
-  --color-surface-2: #1b2138;
-  --color-border: #283254;
-  --color-border-glow: #ff2a5f40;
-  --color-text: #f7f8fd;
-  --color-text-muted: #9aa4c4;
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: 228 35% 7%;
+    --foreground: 230 40% 98%;
+    
+    --card: 227 36% 11%;
+    --card-foreground: 230 40% 98%;
+
+    --popover: 227 36% 11%;
+    --popover-foreground: 230 40% 98%;
+
+    --primary: 345 100% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 227 36% 15%;
+    --secondary-foreground: 230 30% 96%;
+
+    --muted: 227 33% 17%;
+    --muted-foreground: 227 24% 68%;
+
+    --accent: 227 36% 21%;
+    --accent-foreground: 230 40% 98%;
+
+    --destructive: 345 100% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 227 35% 24%;
+    --input: 227 35% 24%;
+    --ring: 345 100% 58%;
+
+    --radius: 1rem;
+
+    --color-primary: #ff2a5f;
+    --color-primary-hover: #ff4777;
+    --color-primary-text: #ffffff;
+    --color-accent-mint: #00f5a0;
+    --color-accent-gold: #ffd166;
+    --color-accent-violet: #a855f7;
+    --color-bg: #0b0d17;
+    --color-surface: #121626;
+    --color-surface-2: #1b2138;
+    --color-border: #283254;
+    --color-text: #f7f8fd;
+    --color-text-muted: #9aa4c4;
+  }
+
+  .light {
+    color-scheme: light;
+    --background: 0 0% 100%;
+    --foreground: 228 35% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 228 35% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 35% 9%;
+    --primary: 345 100% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 228 35% 9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 92%;
+    --accent-foreground: 228 35% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 345 100% 54%;
+  }
 }
 
 * { box-sizing: border-box; }

@@ -1,3 +1,4 @@
+import { HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective } from "../../ui";
 import {
   Component,
   OnInit,
@@ -44,7 +45,7 @@ export interface PodiumRow {
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, FinalRevealComponent],
+  imports: [CommonModule, FinalRevealComponent, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
 })

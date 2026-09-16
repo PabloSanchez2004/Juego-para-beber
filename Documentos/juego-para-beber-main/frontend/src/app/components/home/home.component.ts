@@ -1,3 +1,4 @@
+import { HlmButtonDirective, HlmInputDirective, HlmCardDirective, HlmAlertDirective } from "../../ui";
 import {
   Component,
   OnInit,
@@ -23,7 +24,7 @@ export type HomeView = 'main' | 'create' | 'code' | 'name';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HlmButtonDirective, HlmInputDirective, HlmCardDirective, HlmAlertDirective],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
 })

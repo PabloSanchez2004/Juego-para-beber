@@ -1,3 +1,4 @@
+import { HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective } from "../../ui";
 import {
   Component,
   OnInit,
@@ -14,7 +15,7 @@ import { GameStateDto, PlayerPublicDto } from '../../models/game.models';
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective],
   templateUrl: './lobby.component.html',
   styleUrls: ['./lobby.component.scss'],
 })

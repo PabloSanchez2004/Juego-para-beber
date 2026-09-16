@@ -6,9 +6,9 @@
         <p class="eyebrow hero-eyebrow"><span aria-hidden="true"></span> MUCHA INTUICIÓN. POCA VERGÜENZA.</p>
         <h1>No hace falta<br>saber.<br><em>Acércate.</em></h1>
         <p class="hero-description">Una pregunta, un número y ese colega que se pasa tres pueblos. La IA busca el dato. Vosotros ponéis el espectáculo.</p>
-        <div class="hero-actions"><button class="btn-primary" (click)="showCreate()">Crear sala <span aria-hidden="true">↗</span></button><button class="btn-secondary" (click)="showJoin()">Tengo un código <span aria-hidden="true">→</span></button></div>
+        <div class="hero-actions"><button hlmBtn variant="party" class="btn-primary" (click)="showCreate()">Crear sala <span aria-hidden="true">↗</span></button><button hlmBtn variant="secondary" class="btn-secondary" (click)="showJoin()">Tengo un código <span aria-hidden="true">→</span></button></div>
         <p class="play-note">2–12 jugadores · Un móvil por persona · Sin registros</p>
-        @if (errorMsg()) { <p class="alert-error" role="alert">{{ errorMsg() }}</p> }
+        @if (errorMsg()) { <p hlmAlert variant="destructive" class="alert-error" role="alert">{{ errorMsg() }}</p> }
       </div>
       <div class="demo-board" aria-label="Ejemplo de ronda: cuántos huesos tiene un adulto, respuesta 206">
         <div class="board-top"><span>ASÍ SE JUEGA</span><span>RONDA 01 / 10</span></div>
@@ -36,7 +36,7 @@
         <input
           id="create-name"
           type="text"
-          class="input-field"
+          hlmInput class="input-field"
           placeholder="¿Cómo te llaman?"
           [value]="name()"
           (input)="onNameInput($event)"
@@ -52,7 +52,7 @@
       </div>
 
       <!-- Rondas: el valor elegido se guarda en la sala y StartGame lo respeta -->
-      <div class="card">
+      <div hlmCard class="card">
         <label for="max-rounds" class="block text-slate-400 text-sm font-semibold mb-3 uppercase tracking-wide">
           Rondas de la partida
         </label>
@@ -77,13 +77,15 @@
 
       <!-- Error -->
       @if (errorMsg()) {
-        <div class="alert-error animate-shake" role="alert">
+        <div hlmAlert variant="destructive" class="alert-error animate-shake" role="alert">
           {{ errorMsg() }}
         </div>
       }
 
       <!-- Botones -->
       <button
+        hlmBtn
+        variant="party"
         class="btn-primary"
         [disabled]="!nameValid() || loading()"
         (click)="createRoom()"
@@ -99,7 +101,7 @@
         }
       </button>
 
-      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+      <button hlmBtn variant="secondary" class="btn-secondary" (click)="back()" [disabled]="loading()">
         ← Volver
       </button>
     </div>
@@ -137,12 +139,14 @@
       </div>
 
       @if (errorMsg()) {
-        <div class="alert-error animate-shake" role="alert">
+        <div hlmAlert variant="destructive" class="alert-error animate-shake" role="alert">
           {{ errorMsg() }}
         </div>
       }
 
       <button
+        hlmBtn
+        variant="party"
         class="btn-primary"
         [disabled]="!codeValid() || loading()"
         (click)="checkCode()"
@@ -158,7 +162,7 @@
         }
       </button>
 
-      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+      <button hlmBtn variant="secondary" class="btn-secondary" (click)="back()" [disabled]="loading()">
         ← Volver
       </button>
     </div>
@@ -170,7 +174,7 @@
       <h2 class="text-2xl font-bold text-center text-white">Ya casi estás.</h2><p class="entry-description">Pon el nombre por el que te conocen tus colegas.</p>
 
       <!-- Sala a la que vamos a entrar -->
-      <div class="card text-center">
+      <div hlmCard class="card text-center">
         <p class="eyebrow mb-2">{{ fromInvite() ? 'Te han invitado a' : 'Entras en la sala' }}</p>
         <p class="text-3xl font-black text-white tracking-[0.3em]">{{ roomCode() }}</p>
       </div>
@@ -198,12 +202,14 @@
       </div>
 
       @if (errorMsg()) {
-        <div class="alert-error animate-shake" role="alert">
+        <div hlmAlert variant="destructive" class="alert-error animate-shake" role="alert">
           {{ errorMsg() }}
         </div>
       }
 
       <button
+        hlmBtn
+        variant="party"
         class="btn-primary"
         [disabled]="!nameValid() || !codeValid() || loading()"
         (click)="joinRoom()"
@@ -219,7 +225,7 @@
         }
       </button>
 
-      <button class="btn-secondary" (click)="back()" [disabled]="loading()">
+      <button hlmBtn variant="secondary" class="btn-secondary" (click)="back()" [disabled]="loading()">
         ← Volver
       </button>
     </div>

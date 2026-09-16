@@ -1,3 +1,4 @@
+import { HlmButtonDirective, HlmInputDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective, HlmProgressComponent } from "../../ui";
 import {
   Component,
   OnInit,

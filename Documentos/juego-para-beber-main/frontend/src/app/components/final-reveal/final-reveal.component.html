@@ -132,7 +132,7 @@
     <!-- Pie: reglas de tragos y salida -->
     <footer class="px-5 pb-6 pt-3 shrink-0">
       @if (done()) {
-        <div class="card mb-4 reveal-item">
+        <div hlmCard class="card mb-4 reveal-item">
           @if (isTie) {
             <p class="text-slate-200 text-sm leading-relaxed text-center">
               Empate total. Mismos puntos, honor compartido.
@@ -140,7 +140,7 @@
           } @else {
             <div class="space-y-2.5">
               <div class="flex gap-3 items-start">
-                <span class="badge-gold shrink-0">🏆 Victoria</span>
+                <span hlmBadge variant="gold" class="badge-gold shrink-0">🏆 Victoria</span>
                 <p class="text-slate-200 text-sm leading-snug">
                   <span class="text-gold-300 font-semibold">{{ bestNames }}</span>
                   encabeza la clasificación. Cada estimación suma hasta 100 puntos según su precisión.
@@ -160,10 +160,10 @@
         </div>
 
         @if (error) {
-          <div class="alert-error mb-3" role="alert">{{ error }}</div>
+          <div hlmAlert variant="destructive" class="alert-error mb-3" role="alert">{{ error }}</div>
         }
         <button
-          class="btn-primary reveal-item"
+          hlmBtn variant="party" class="btn-primary reveal-item"
           [disabled]="busy"
           (click)="onFinish()"
           aria-label="Terminar y volver al inicio">

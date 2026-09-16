@@ -1,3 +1,4 @@
+import { HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective } from "../../ui";
 import {
   Component,
   EventEmitter,
@@ -33,7 +34,7 @@ export const SETTLE_MS = 1200;
 @Component({
   selector: 'app-final-reveal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective],
   templateUrl: './final-reveal.component.html',
   styleUrls: ['./final-reveal.component.scss'],
 })

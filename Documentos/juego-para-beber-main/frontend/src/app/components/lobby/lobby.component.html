@@ -42,13 +42,13 @@
       </button>
     </div>
 
-    <section class="card mb-6" aria-labelledby="game-settings-title">
+    <section hlmCard class="card mb-6" aria-labelledby="game-settings-title">
       <div class="flex items-center justify-between gap-3 mb-5">
         <div>
           <p class="eyebrow mb-1">A vuestra manera</p>
           <h2 id="game-settings-title" class="text-xl font-bold text-white">Modo de juego</h2>
         </div>
-        <span class="badge-neutral">{{ s.maxRounds }} {{ s.maxRounds === 1 ? 'ronda' : 'rondas' }}</span>
+        <span hlmBadge variant="neutral" class="badge-neutral">{{ s.maxRounds }} {{ s.maxRounds === 1 ? 'ronda' : 'rondas' }}</span>
       </div>
       <div class="game-mode-grid" role="group" aria-label="Modo de juego">
         <button type="button" class="game-mode-option" [class.selected]="!s.redactorCanGuess"
@@ -160,7 +160,7 @@
 
     <!-- Error -->
     @if (errorMsg()) {
-        <div class="alert-error mb-4 animate-shake" role="alert">
+        <div hlmAlert variant="destructive" class="alert-error mb-4 animate-shake" role="alert">
           {{ errorMsg() }}
         </div>
     }
@@ -171,13 +171,13 @@
         <p class="text-center text-gray-400 text-sm mb-3">
           {{ enoughPlayers() ? 'Todo listo. Que gane quien menos se equivoque.' : 'Invita al menos a una persona para empezar.' }}
         </p>
-        <button class="btn-primary w-full" [disabled]="!canStart()" (click)="startGame()"
+        <button hlmBtn variant="party" class="btn-primary w-full" [disabled]="!canStart()" (click)="startGame()"
           aria-label="Empezar partida">
           {{ loading() ? 'Empezando…' : 'Empezar partida' }}
           <span aria-hidden="true">↗</span>
         </button>
       } @else {
-        <div class="card text-center" role="status">
+        <div hlmCard class="card text-center" role="status">
           <p class="text-white font-semibold">{{ enoughPlayers() ? 'Ya estamos. Solo falta darle al play.' : 'La sala se está llenando…' }}</p>
           <p class="text-gray-400 text-sm mt-2">Esperando a {{ adminName() || 'el anfitrión' }} para empezar.</p>
         </div>
