@@ -22,10 +22,19 @@
           (finish)="finishGame()" />
       } @else {
 
-        <header class="flex items-end justify-between mb-5">
-          <div>
-            <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
-            <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
+        <header class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="text-gray-500 hover:text-white transition-colors p-2 -ml-2 text-sm font-semibold flex items-center gap-1 cursor-pointer"
+              (click)="promptLeave()"
+              aria-label="Salir de la partida">
+              ← Salir
+            </button>
+            <div>
+              <p class="eyebrow">Ronda {{ r.roundNumber }} de {{ s.maxRounds }}</p>
+              <h2 class="text-3xl font-extrabold tracking-tight text-white mt-1">Resultados</h2>
+            </div>
           </div>
           <span hlmBadge variant="neutral" class="badge-neutral font-bold">{{ s.roomCode }}</span>
         </header>
@@ -256,6 +265,33 @@
             }
           </ul>
         </details>
+
+        <hlm-dialog [(open)]="showLeaveDialog" ariaLabelledBy="results-leave-dialog-title" ariaDescribedBy="results-leave-dialog-desc">
+          <hlm-dialog-header>
+            <h3 id="results-leave-dialog-title" hlmDialogTitle class="text-xl sm:text-2xl font-black text-white">¿Salir de la partida?</h3>
+            <p id="results-leave-dialog-desc" hlmDialogDescription class="text-slate-400 text-sm mt-2">
+              ¿Estás seguro de que quieres salir de la partida? Perderás tu puntuación y tu puesto en esta sala.
+            </p>
+          </hlm-dialog-header>
+          <hlm-dialog-footer>
+            <button
+              hlmBtn
+              variant="ghost"
+              type="button"
+              (click)="cancelLeave()"
+              aria-label="Cancelar y seguir jugando">
+              Seguir jugando
+            </button>
+            <button
+              hlmBtn
+              variant="destructive"
+              type="button"
+              (click)="confirmLeave()"
+              aria-label="Confirmar y salir de la partida">
+              Salir de la partida
+            </button>
+          </hlm-dialog-footer>
+        </hlm-dialog>
 
         @if (errorMsg()) {
           <div hlmAlert variant="destructive" class="alert-error mb-4 animate-shake" role="alert">{{ errorMsg() }}</div>

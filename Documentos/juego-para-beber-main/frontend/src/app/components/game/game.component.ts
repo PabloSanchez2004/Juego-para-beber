@@ -1,4 +1,14 @@
-import { HlmButtonDirective, HlmInputDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective, HlmProgressComponent } from "../../ui";
+import {
+  HlmButtonDirective,
+  HlmInputDirective,
+  HlmCardDirective,
+  HlmAlertDirective,
+  HlmDialogComponent,
+  HlmDialogHeaderComponent,
+  HlmDialogTitleDirective,
+  HlmDialogDescriptionDirective,
+  HlmDialogFooterComponent,
+} from "../../ui";
 import {
   Component,
   OnInit,
@@ -22,7 +32,19 @@ import {
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    HlmButtonDirective,
+    HlmInputDirective,
+      HlmCardDirective,
+    HlmAlertDirective,
+      HlmDialogComponent,
+    HlmDialogHeaderComponent,
+    HlmDialogTitleDirective,
+    HlmDialogDescriptionDirective,
+    HlmDialogFooterComponent,
+  ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss'],
 })
@@ -33,6 +55,7 @@ export class GameComponent implements OnInit, OnDestroy {
   guessSent = signal(false);
   questionSent = signal(false);
   doubleOrNothing = signal(false);
+  showLeaveDialog = signal(false);
 
   // Formularios
   question = signal('');
@@ -243,6 +266,26 @@ export class GameComponent implements OnInit, OnDestroy {
     const formatted = formatGuessTyping(raw);
     this.guessInput.set(formatted);
     el.value = formatted;
+  }
+
+  promptLeave(): void {
+    this.showLeaveDialog.set(true);
+  }
+
+  cancelLeave(): void {
+    this.showLeaveDialog.set(false);
+  }
+
+  async confirmLeave(): Promise<void> {
+    this.showLeaveDialog.set(false);
+    this.loading.set(true);
+    try {
+      await this.roomService.leaveRoom();
+    } catch {
+      // Clear session even if network connection dropped
+    } finally {
+      this.router.navigate(['/']);
+    }
   }
 
   trackByPlayerId(_: number, p: { playerId: string }): string {

@@ -367,4 +367,20 @@ describe('ResultsComponent', () => {
     expect(component.errorMsg()).toContain('No se pudo repartir');
   });
 
+  it('promptLeave opens leave confirmation dialog and cancel closes it', () => {
+    expect(component.showLeaveDialog()).toBeFalse();
+    component.promptLeave();
+    expect(component.showLeaveDialog()).toBeTrue();
+    component.cancelLeave();
+    expect(component.showLeaveDialog()).toBeFalse();
+  });
+
+  it('confirmLeave closes dialog and finishes game', async () => {
+    mockRoomService.leaveRoom.and.returnValue(Promise.resolve());
+    component.promptLeave();
+    await component.confirmLeave();
+    expect(component.showLeaveDialog()).toBeFalse();
+    expect(mockRoomService.leaveRoom).toHaveBeenCalled();
+  });
+
 });

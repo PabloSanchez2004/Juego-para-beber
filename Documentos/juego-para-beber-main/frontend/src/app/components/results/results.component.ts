@@ -1,4 +1,4 @@
-import { HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective } from "../../ui";
+import { HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective, HlmDialogComponent, HlmDialogHeaderComponent, HlmDialogTitleDirective, HlmDialogDescriptionDirective, HlmDialogFooterComponent } from "../../ui";
 import {
   Component,
   OnInit,
@@ -45,7 +45,7 @@ export interface PodiumRow {
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, FinalRevealComponent, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective],
+  imports: [CommonModule, FinalRevealComponent, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmAlertDirective, HlmDialogComponent, HlmDialogHeaderComponent, HlmDialogTitleDirective, HlmDialogDescriptionDirective, HlmDialogFooterComponent],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
 })
@@ -54,6 +54,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   loading = signal(false);
   errorMsg = signal('');
   showFinal = signal(false);
+  showLeaveDialog = signal(false);
 
   myPlayerId = computed(() => this.roomService.localPlayer?.playerId ?? '');
 
@@ -254,6 +255,19 @@ export class ResultsComponent implements OnInit, OnDestroy {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  promptLeave(): void {
+    this.showLeaveDialog.set(true);
+  }
+
+  cancelLeave(): void {
+    this.showLeaveDialog.set(false);
+  }
+
+  async confirmLeave(): Promise<void> {
+    this.showLeaveDialog.set(false);
+    await this.finishGame();
   }
 
   openFinal(): void {

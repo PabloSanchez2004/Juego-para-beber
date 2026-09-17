@@ -38,7 +38,7 @@ describe('GameComponent', () => {
     guessAcknowledged$ = new Subject<void>();
 
     mockRoomService = jasmine.createSpyObj('RoomService', [
-      'submitQuestion', 'submitGuess', 'requestResults'
+      'submitQuestion', 'submitGuess', 'requestResults', 'leaveRoom'
     ], {
       gameState$: gameState$.asObservable(),
       error$: error$.asObservable(),
@@ -296,6 +296,24 @@ describe('GameComponent', () => {
     input.value = '1.234,5';
     input.dispatchEvent(new InputEvent('input', { data: '5', inputType: 'insertText' }));
     expect(component.resolvedGuess()).toBe(1234.5);
+  });
+
+  it('clicking leave button prompts confirmation dialog', () => {
+    expect(component.showLeaveDialog()).toBeFalse();
+    component.promptLeave();
+    expect(component.showLeaveDialog()).toBeTrue();
+    component.cancelLeave();
+    expect(component.showLeaveDialog()).toBeFalse();
+    expect(mockRoomService.leaveRoom).not.toHaveBeenCalled();
+  });
+
+  it('confirming leave calls leaveRoom and redirects to home', async () => {
+    mockRoomService.leaveRoom.and.returnValue(Promise.resolve());
+    component.promptLeave();
+    expect(component.showLeaveDialog()).toBeTrue();
+    await component.confirmLeave();
+    expect(component.showLeaveDialog()).toBeFalse();
+    expect(mockRoomService.leaveRoom).toHaveBeenCalled();
   });
 
 });
