@@ -504,11 +504,6 @@ public sealed class GameHub : Hub
             await SendError("Espera a los resultados antes de avanzar.");
             return;
         }
-        if (room.HasPendingDistribution)
-        {
-            await SendError("Espera a que los ganadores conectados terminen de repartir sus tragos.");
-            return;
-        }
         bool hasMore = room.TryAdvanceRound();
 
         if (!hasMore)
