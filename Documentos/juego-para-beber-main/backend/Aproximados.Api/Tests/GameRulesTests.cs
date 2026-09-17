@@ -173,7 +173,6 @@ public class GameRulesTests
         Assert.False(room.TryDistributeDrinks("p2", "p3", -1));
         Assert.False(room.TryDistributeDrinks("p2", "p3", int.MaxValue));
         Assert.True(room.HasPendingDistribution);
-        Assert.False(room.TryAdvanceRound());
         var accepted = 0;
         Parallel.For(0, 20, _ => { if (room.TryDistributeDrinks("p2", "p3", 1)) Interlocked.Increment(ref accepted); });
         Assert.Equal(1, accepted);

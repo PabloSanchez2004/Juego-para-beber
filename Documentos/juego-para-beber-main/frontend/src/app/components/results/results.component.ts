@@ -161,33 +161,15 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.finalStandings().length > 1 && this.finalStandings().every(r => r.outcome !== 'best')
   );
 
-  /** Tragos que reparte el ganador (viene del backend; 1 por defecto). */
+  /** Tragos que reparte el ganador (1 por defecto). */
   drinksToDistribute = computed(() => Math.max(0, this.result()?.drinksToDistribute ?? 0));
 
-  myDrinksRemaining = computed(() => {
-    if (!this.winners().some(p => this.isMe(p.playerId))) return 0;
-    const used = this.result()?.drinksDistributedByWinner?.[this.myPlayerId()] ?? 0;
-    return Math.max(0, this.drinksToDistribute() - used);
-  });
+  winnerNames = computed(() => this.winners().map(w => w.playerName).join(' y '));
+  loserNames = computed(() => this.losers().map(l => l.playerName).join(' y '));
+  isWinnerMe = computed(() => this.winners().some(w => this.isMe(w.playerId)));
+  isLoserMe = computed(() => this.losers().some(l => this.isMe(l.playerId)));
 
-  drinkRecipients = computed(() => this.state()?.players.filter(p => !this.isMe(p.playerId)) ?? []);
-
-  pendingDistributors = computed(() => {
-    const s = this.state();
-    const used = this.result()?.drinksDistributedByWinner ?? {};
-    return this.winners().filter(w => s?.players.some(p => p.playerId !== w.playerId)
-      && s?.players.some(p => p.playerId === w.playerId && p.isConnected)
-      && (used[w.playerId] ?? 0) < this.drinksToDistribute());
-  });
-
-  canAdvance = computed(() => this.state()?.adminPlayerId === this.myPlayerId()
-    && this.pendingDistributors().length === 0);
-
-  assignmentLines = computed(() => (this.result()?.drinkAssignments ?? []).map(assignment => ({
-    ...assignment,
-    fromName: this.playerName(assignment.fromPlayerId),
-    toName: this.playerName(assignment.toPlayerId),
-  })));
+  canAdvance = computed(() => this.state()?.adminPlayerId === this.myPlayerId());
 
   private subs = new Subscription();
 
@@ -244,19 +226,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async distributeTo(playerId: string): Promise<void> {
-    if (this.loading() || this.myDrinksRemaining() < 1 || !this.drinkRecipients().some(p => p.playerId === playerId)) return;
-    this.loading.set(true);
-    this.errorMsg.set('');
-    try {
-      await this.roomService.distributeDrinks(playerId, 1);
-    } catch {
-      this.errorMsg.set('No se pudo repartir el trago. Inténtalo otra vez.');
-    } finally {
-      this.loading.set(false);
-    }
-  }
-
   promptLeave(): void {
     this.showLeaveDialog.set(true);
   }
@@ -271,7 +240,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   openFinal(): void {
-    if (this.isLastRound() && this.pendingDistributors().length === 0) this.showFinal.set(true);
+    if (this.isLastRound()) this.showFinal.set(true);
   }
 
   async finishGame(): Promise<void> {

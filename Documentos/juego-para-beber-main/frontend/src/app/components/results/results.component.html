@@ -66,39 +66,62 @@
           </div>
         </section>
 
-        <section hlmCard class="drink-allocation card mb-6" aria-label="Reparto de tragos">
+        <!-- Veredicto de tragos de la ronda -->
+        <section hlmCard class="card party-verdict mb-6 animate-slide-up" aria-label="Veredicto de tragos">
           <div class="flex items-center justify-between gap-3 mb-3">
-            <h3 class="eyebrow">El ganador reparte</h3>
-            @if (myDrinksRemaining() > 0) {
-              <span hlmBadge variant="gold" class="badge-gold">{{ myDrinksRemaining() }} pendiente{{ myDrinksRemaining() === 1 ? '' : 's' }}</span>
+            <h3 class="eyebrow text-gold-400">Veredicto de la ronda</h3>
+            <span hlmBadge variant="party" class="badge-party">Tragos</span>
+          </div>
+
+          <div class="space-y-3">
+            <!-- Ganador: reparte de palabra -->
+            <div class="p-4 rounded-2xl bg-gold-400/10 border border-gold-400/30 flex items-start gap-3">
+              <span class="text-2xl shrink-0" aria-hidden="true">👑</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-gold-300 font-bold text-sm">
+                  @if (isWinnerMe()) {
+                    ¡Has ganado la ronda!
+                  } @else {
+                    ¡{{ winnerNames() || 'El ganador' }} gana la ronda!
+                  }
+                </p>
+                <p class="text-slate-200 text-sm mt-0.5 leading-snug">
+                  @if (isWinnerMe()) {
+                    Te toca <strong class="text-white">decir en voz alta quién bebe</strong> {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
+                  } @else {
+                    Le toca <strong class="text-white">decir en voz alta quién bebe</strong> {{ drinksToDistribute() }} {{ drinksToDistribute() === 1 ? 'trago' : 'tragos' }}.
+                  }
+                </p>
+              </div>
+            </div>
+
+            <!-- Perdedor: bebe por perder -->
+            @if (losers().length > 0) {
+              <div class="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
+                <span class="text-2xl shrink-0" aria-hidden="true">🍺</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-red-300 font-bold text-sm">
+                    @if (isLoserMe()) {
+                      ¡Te has quedado más lejos!
+                    } @else {
+                      ¡{{ loserNames() }} ha quedado más lejos!
+                    }
+                  </p>
+                  <p class="text-slate-200 text-sm mt-0.5 leading-snug">
+                    @if (isLoserMe()) {
+                      Te toca <strong class="text-white">beber {{ r.loserPenalty }} {{ r.loserPenalty === 1 ? 'trago' : 'tragos' }}</strong> por perdedor.
+                    } @else {
+                      Le toca <strong class="text-white">beber {{ r.loserPenalty }} {{ r.loserPenalty === 1 ? 'trago' : 'tragos' }}</strong> por perdedor.
+                    }
+                  </p>
+                </div>
+              </div>
+            } @else if (!isSoloEstimator()) {
+              <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-slate-300 text-sm text-center">
+                Empate total en la ronda. ¡Nadie bebe por perdedor!
+              </div>
             }
           </div>
-          @if (myDrinksRemaining() > 0) {
-            <p class="text-slate-400 text-sm mb-4">Te has ganado el turno de elegir. Cada toque asigna un trago.</p>
-            <div class="recipient-grid">
-              @for (player of drinkRecipients(); track player.playerId) {
-                <button class="recipient-option" [disabled]="loading()" [title]="player.name"
-                  [attr.aria-label]="'Dar un trago a ' + player.name" (click)="distributeTo(player.playerId)">
-                  <span>{{ player.name }}</span><small>+1 trago</small>
-                </button>
-              }
-            </div>
-          } @else if (pendingDistributors().length > 0) {
-            <p class="text-slate-400 text-sm">Esperando el reparto de
-              @for (winner of pendingDistributors(); track winner.playerId; let last = $last) {
-                <span class="text-slate-200 font-semibold">{{ winner.playerName }}{{ last ? '.' : ', ' }}</span>
-              }
-            </p>
-          } @else {
-            <p class="text-slate-400 text-sm">Reparto completado.</p>
-          }
-          @if (assignmentLines().length > 0) {
-            <ul class="mt-4 space-y-2 text-slate-400 text-sm" aria-live="polite">
-              @for (assignment of assignmentLines(); track $index) {
-                <li><span class="text-slate-200">{{ assignment.fromName }}</span> → {{ assignment.toName }} · {{ assignment.amount }} {{ assignment.amount === 1 ? 'trago' : 'tragos' }}</li>
-              }
-            </ul>
-          }
         </section>
 
         <section class="mb-6">
@@ -323,12 +346,12 @@
                 <span class="loading-dot" style="animation-delay:300ms"></span>
               </span>
             } @else {
-              {{ pendingDistributors().length > 0 ? 'Esperando el reparto de tragos' : (s.adminPlayerId === myPlayerId() ? 'Siguiente ronda →' : 'El anfitrión inicia la siguiente ronda') }}
+              {{ s.adminPlayerId === myPlayerId() ? 'Siguiente ronda →' : 'El anfitrión inicia la siguiente ronda' }}
             }
           </button>
           } @else {
-            <button hlmBtn variant="party" class="btn-primary" [disabled]="pendingDistributors().length > 0 || loading()" (click)="openFinal()">
-              {{ pendingDistributors().length > 0 ? 'Esperando el reparto de tragos' : 'Ver clasificación final →' }}
+            <button hlmBtn variant="party" class="btn-primary" [disabled]="loading()" (click)="openFinal()">
+              Ver clasificación final →
             </button>
           }
         </div>

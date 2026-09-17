@@ -582,7 +582,7 @@ public sealed class Room
     {
         lock (_lock)
         {
-            if (_phase != GamePhase.ShowingResults || HasPendingDistributionUnlocked()) return false;
+            if (_phase != GamePhase.ShowingResults) return false;
 
             // La última ronda se queda en resultados para el podio. Cerrar aquí
             // expulsaría a todo el mundo antes de ver la clasificación.
