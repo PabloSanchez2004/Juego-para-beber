@@ -222,6 +222,20 @@ describe('ResultsComponent', () => {
     expect(component.nextRedactor()?.playerId).toBe('p3');
   });
 
+  it('formatAccuracy should format precision nicely', () => {
+    expect(component.formatAccuracy({
+      playerId: 'p1', playerName: 'Ana', guess: 100, correctAnswer: 100,
+      accuracy: 1.0, accuracyPercent: 100, relativePerformance: 1.0,
+      relativeErrorPercent: 0, rank: 1, pointsEarned: 100, drinksThisRound: 0, penaltyDescription: ''
+    })).toBe('100 % precisión');
+
+    expect(component.formatAccuracy({
+      playerId: 'p2', playerName: 'Bob', guess: 80, correctAnswer: 100,
+      accuracy: 0.80, accuracyPercent: 80, relativePerformance: 0.8,
+      relativeErrorPercent: 20, rank: 2, pointsEarned: 88, drinksThisRound: 0, penaltyDescription: ''
+    })).toBe('80 % precisión');
+  });
+
   it('formatError should handle exact answer', () => {
     expect(component.formatError(0)).toContain('Exacto');
   });

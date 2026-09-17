@@ -313,6 +313,16 @@ export class ResultsComponent implements OnInit, OnDestroy {
   formatNumber = formatEsNumber;
   sourceUrl = sourceUrl;
 
+  formatAccuracy(entry: PlayerRoundResult): string {
+    if (entry.accuracyPercent !== undefined && Number.isFinite(entry.accuracyPercent) && entry.accuracyPercent > 0) {
+      if (entry.accuracyPercent >= 99.95 || entry.guess === entry.correctAnswer) return '100 % precisión';
+      if (entry.accuracyPercent < 0.05) return '< 1 % precisión';
+      return `${Math.round(entry.accuracyPercent)} % precisión`;
+    }
+    if (entry.guess === entry.correctAnswer) return '100 % precisión';
+    return `${this.formatError(entry.relativeErrorPercent)} de error`;
+  }
+
   formatError(pct: number): string {
     if (!Number.isFinite(pct)) return 'Fuera de escala';
     if (pct === 0) return 'Exacto';

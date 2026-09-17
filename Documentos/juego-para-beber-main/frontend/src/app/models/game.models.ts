@@ -35,6 +35,9 @@ export interface PlayerRoundResult {
   playerName: string;
   guess: number;
   correctAnswer: number;
+  accuracy?: number;
+  accuracyPercent?: number;
+  relativePerformance?: number;
   relativeErrorPercent: number;
   rank: number;
   pointsEarned: number;

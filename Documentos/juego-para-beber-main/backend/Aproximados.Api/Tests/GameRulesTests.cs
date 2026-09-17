@@ -44,8 +44,8 @@ public class GameRulesTests
         Assert.Equal(3, result.Ranking.Count);
         Assert.Equal("p1", result.Ranking[0].PlayerId);
         Assert.Equal(100, room.Players.Single(p => p.PlayerId == "p1").Score);
-        Assert.Equal(50, room.Players.Single(p => p.PlayerId == "p2").Score);
-        Assert.Equal(0, room.Players.Single(p => p.PlayerId == "p3").Score);
+        Assert.Equal(67, room.Players.Single(p => p.PlayerId == "p2").Score);
+        Assert.Equal(50, room.Players.Single(p => p.PlayerId == "p3").Score);
         Assert.True(room.TryDistributeDrinks("p1", "p2", 1));
         Assert.True(room.TryAdvanceRound());
         Assert.Equal("p1", room.RedactorPlayerId);
@@ -116,12 +116,12 @@ public class GameRulesTests
     {
         var room = CreateRoom();
         room.TrySubmitGuess("p2", 90);
-        room.TrySubmitGuess("p3", 110);
+        room.TrySubmitGuess("p3", 90);
         var result = room.FinalizeRound(100, "test", "")!;
         Assert.All(result.Ranking, r => Assert.Equal(1, r.Rank));
         Assert.Equal(0, result.LoserPenalty);
         Assert.Equal("", result.LoserName);
-        Assert.All(room.Players.Where(p => p.PlayerId != "p1"), p => Assert.Equal(90, p.Score));
+        Assert.All(room.Players.Where(p => p.PlayerId != "p1"), p => Assert.Equal(94, p.Score));
     }
 
     [Theory]
@@ -256,9 +256,9 @@ public class GameRulesTests
         var result = room.FinalizeRound(100, "test", "")!;
 
         Assert.Equal(100, result.Ranking.Single(r => r.PlayerId == "p2").PointsEarned);
-        Assert.Equal(75, result.Ranking.Single(r => r.PlayerId == "p3").PointsEarned);
+        Assert.Equal(80, result.Ranking.Single(r => r.PlayerId == "p3").PointsEarned);
         Assert.Equal(100, room.Players.Single(p => p.PlayerId == "p2").Score);
-        Assert.Equal(75, room.Players.Single(p => p.PlayerId == "p3").Score);
+        Assert.Equal(80, room.Players.Single(p => p.PlayerId == "p3").Score);
     }
 
     [Fact]
@@ -271,11 +271,11 @@ public class GameRulesTests
         var result = room.FinalizeRound(100, "test", "")!;
         var risky = result.Ranking.Single(r => r.PlayerId == "p2");
 
-        Assert.Equal(90, risky.BasePoints);
-        Assert.Equal(180, risky.PointsEarned);
+        Assert.Equal(95, risky.BasePoints);
+        Assert.Equal(190, risky.PointsEarned);
         Assert.True(risky.UsedDoubleOrNothing);
         Assert.True(risky.DoubleOrNothingWon);
-        Assert.Equal(180, room.Players.Single(p => p.PlayerId == "p2").Score);
+        Assert.Equal(190, room.Players.Single(p => p.PlayerId == "p2").Score);
         Assert.False(room.Players.Single(p => p.PlayerId == "p2").DoubleOrNothingAvailable);
     }
 
@@ -288,7 +288,7 @@ public class GameRulesTests
 
         var risky = room.FinalizeRound(100, "test", "")!.Ranking.Single(r => r.PlayerId == "p2");
 
-        Assert.Equal(89, risky.BasePoints);
+        Assert.Equal(94, risky.BasePoints);
         Assert.Equal(0, risky.PointsEarned);
         Assert.False(risky.DoubleOrNothingWon);
     }

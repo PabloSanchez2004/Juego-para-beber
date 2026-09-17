@@ -415,45 +415,31 @@ public sealed class Room
 
             if (estimators.Count == 0) return null;
 
-            // Calcular error relativo para cada jugador
-            var ranked = estimators
-                .Select(p => new
-                {
-                    Player = p,
-                    Error = ComputeRelativeError(p.Guess!.Value, correctAnswer)
-                })
-                .OrderBy(x => x.Error)
-                .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase) // desempate determinista por nombre
-                .ToList();
+            // Calcular puntuaciones continuas y ranking mediante ScoreCalculator
+            var inputs = estimators.Select(p => new PlayerScoreInput(
+                p.PlayerId,
+                p.Name,
+                p.Guess!.Value,
+                p.UsedDoubleOrNothingThisRound
+            )).ToList();
 
-            // Asignar rangos (empates comparten rango)
-            var results = new List<PlayerRoundResult>();
-            int rank = 1;
-            for (int i = 0; i < ranked.Count; i++)
+            var calculatedScores = ScoreCalculator.CalculateScores(correctAnswer, inputs);
+
+            var results = calculatedScores.Select(c => new PlayerRoundResult
             {
-                if (i > 0 && ranked[i].Error != ranked[i - 1].Error)
-                    rank = i + 1;
-
-                var p = ranked[i].Player;
-                var errorPercent = ranked[i].Error * 100;
-                var basePoints = ComputePoints(errorPercent);
-                var jokerWon = p.UsedDoubleOrNothingThisRound && errorPercent <= 10;
-                results.Add(new PlayerRoundResult
-                {
-                    PlayerId = p.PlayerId,
-                    PlayerName = p.Name,
-                    Guess = p.Guess!.Value,
-                    CorrectAnswer = correctAnswer,
-                    RelativeErrorPercent = errorPercent,
-                    Rank = rank,
-                    BasePoints = basePoints,
-                    UsedDoubleOrNothing = p.UsedDoubleOrNothingThisRound,
-                    DoubleOrNothingWon = jokerWon,
-                    PointsEarned = p.UsedDoubleOrNothingThisRound
-                        ? jokerWon ? checked(basePoints * 2) : 0
-                        : basePoints
-                });
-            }
+                PlayerId = c.PlayerId,
+                PlayerName = c.PlayerName,
+                Guess = c.Guess,
+                CorrectAnswer = correctAnswer,
+                Accuracy = c.Accuracy,
+                RelativePerformance = c.RelativePerformance,
+                RelativeErrorPercent = c.RelativeErrorPercent,
+                Rank = c.Rank,
+                BasePoints = c.BasePoints,
+                UsedDoubleOrNothing = c.UsedDoubleOrNothing,
+                DoubleOrNothingWon = c.DoubleOrNothingWon,
+                PointsEarned = c.PointsEarned
+            }).ToList();
 
             // Mecánica de tragos:
             //   · Ganador (rango 1, el que más se acercó) → reparte 1 trago a quien quiera.
@@ -731,24 +717,13 @@ public sealed class Room
     }
 
     /// <summary>
-    /// Error relativo: |guess - correct| / max(|correct|, 1).
-    /// Cuando correct = 0, usamos error absoluto puro (no hay denominador natural).
-    /// Cuando correct es negativo, usamos |correct| como denominador.
+    /// Error relativo: delega en ScoreCalculator.ComputeRelativeError.
     /// </summary>
-    public static double ComputeRelativeError(double guess, double correct)
-    {
-        if (correct == 0.0)
-        {
-            // Sin denominador natural, conservamos distancia absoluta sin crear falsos empates.
-            return Math.Min(Math.Abs(guess), 1e300);
-        }
-
-        return Math.Min(Math.Abs(guess - correct) / Math.Abs(correct), 1e300);
-    }
+    public static double ComputeRelativeError(double guess, double correct) =>
+        ScoreCalculator.ComputeRelativeError(guess, correct);
 
     /// <summary>
-    /// Convierte el porcentaje de error en puntos lineales: 0% = 100 puntos,
-    /// 25% = 75 puntos y 100% o más = 0 puntos.
+    /// Convierte la precisión en puntos utilizando ScoreCalculator.
     /// </summary>
     public static int ComputePoints(double relativeErrorPercent)
     {

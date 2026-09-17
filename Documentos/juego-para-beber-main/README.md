@@ -9,7 +9,7 @@ Juego multijugador de estimaciones numéricas para 2–12 personas. Angular 21 +
    - **Solo pregunta:** el redactor escribe la pregunta y no responde.
    - **Todos responden:** el redactor también envía su estimación secreta.
 3. El redactor propone una pregunta con respuesta numérica comprobable. Gemini investiga mientras los demás estiman.
-4. Las estimaciones permanecen privadas hasta el resultado. Cada jugador recibe entre **0 y 100 puntos**: `100 − porcentaje de error`, redondeado al entero más cercano. Un acierto exacto da 100; un 12 % de error da 88; desde el 100 % de error se obtienen 0.
+4. Las estimaciones permanecen privadas hasta el resultado. Cada jugador recibe entre **0 y 100 puntos** continuos mediante una fórmula que combina **60 % precisión absoluta** (distancia multiplicativa logarítmica) y **40 % rendimiento relativo** respecto a la mejor aproximación de la ronda. Un acierto exacto otorga 100 puntos; respuestas cercanas otorgan puntuaciones altas y graduales; y ganar una ronda difícil premia el mérito relativo (~40 pts) sin regalar el 100 %.
    - Cada jugador dispone de un **Doble o nada** secreto por partida. Si lo activa y queda dentro del 10 % de error, duplica los puntos de esa ronda; si supera el 10 %, obtiene 0. El comodín se devuelve si Gemini invalida la pregunta.
 5. La menor desviación permite repartir **1 trago** a otra persona y redactar la siguiente pregunta. El último bebe 1 trago; un error de al menos 1000 % supone 2. Quienes empatan comparten puesto y puntuación. Un ganador no recibe castigo de perdedor.
 6. Si todos los demás participantes responden con un error de como máximo el 1 %, el redactor recibe 1 trago por pregunta demasiado fácil.

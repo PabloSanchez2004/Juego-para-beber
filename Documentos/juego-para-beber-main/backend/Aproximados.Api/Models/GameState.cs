@@ -47,6 +47,15 @@ public sealed record PlayerRoundResult
     public double Guess { get; init; }
     public double CorrectAnswer { get; init; }
 
+    /// <summary>Precisión absoluta normalizada [0.0, 1.0].</summary>
+    public double Accuracy { get; init; }
+
+    /// <summary>Precisión absoluta en porcentaje [0.0, 100.0].</summary>
+    public double AccuracyPercent => Accuracy * 100.0;
+
+    /// <summary>Rendimiento relativo respecto al mejor jugador de la ronda [0.0, 1.0].</summary>
+    public double RelativePerformance { get; init; }
+
     /// <summary>
     /// Error relativo porcentual. Para respuesta correcta = 0, se usa error absoluto.
     /// Para respuesta negativa, se usa |guess - correct| / |correct|.
@@ -61,7 +70,7 @@ public sealed record PlayerRoundResult
     /// </summary>
     public int PointsEarned { get; init; }
 
-    /// <summary>Puntos proporcionales antes de aplicar Doble o nada.</summary>
+    /// <summary>Puntos continuos ponderados antes de aplicar Doble o nada.</summary>
     public int BasePoints { get; init; }
 
     public bool UsedDoubleOrNothing { get; init; }
